@@ -3,7 +3,7 @@
 #$ -cwd
 #$ -r yes
 #$ -l h_rt=240:00:00
-#$ -t 1-1063720
+#$ -t 1-1624
 #$ -l arch=linux-x64
 #$ -l netapp=2G,scratch=1G
 
@@ -85,19 +85,9 @@ number_of_cst_files = len(os.listdir(constraint_file_path))
 scaffold_file = open(os.path.join(scaffold_path, 'filtered_heterodimers_biological_units_100.txt'), 'r')
 scaffold_file_list = [file_name for file_name in scaffold_file]
 
-scaffold_list_index = sge_task_id % number_of_cst_files
-current_scaffold = scaffold_file_list[scaffold_list_index]
+current_scaffold = scaffold_file_list[sge_task_id]
 
 current_scaffold_path = os.path.join(scaffold_path, 'cleaned_heterodimers_all_biological_units', current_scaffold)
-
-# Get constraint file name
-# Floor Divison of SGE_ID by # of constraint files
-cst_file_list = os.listdir(constraint_file_path)
-
-cst_file_index = sge_task_id // number_of_cst_files
-current_cst = cst_file_list[cst_file_index]
-
-current_cst_path = os.path.join(constraint_file_path, current_cst)
 
 # Get posfile and gridlig files for current scaffold
 posfile_name = current_scaffold[:-3] + '.pos'
@@ -117,59 +107,60 @@ output_path = os.path.join(target_compound_path, 'matches')
 #   Construct Arguement   #
 ###########################
 
-arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/match.linuxgccrelease',
-       '-database',
-       '/netapp/home/james.lucas/Rosetta/main/database',
-       '-s',
-       current_scaffold_path,
-       '-match::lig_name',
-       '{LIGAND THREE-LETTER CODE}',
-       '-match::grid_boundary',
-       gridlig_path,
-       '-match::scaffold_active_site_residues',
-       posfile_path,
-       '-match::geometric_constraint_file',
-       current_cst_path,
-       '-extra_res_fa',
-       params_path,
-       '-output_matches_per_group',
-       '1',
-       '-match:consolidate_matches',
-       '-ex1',
-       '-ex2',
-       '-extrachi_cutoff',
-       '0',
-       '-use_input_sc',
-       '-euclid_bin_size',
-       '1.5',
-       '-euler_bin_size',
-       '15',
-       '-bump_tolerance',
-       '0.5',
-       '-out::path',
-       output_path,
-       '-match:output_format',
-       'PDB']
+for cst_file in os.listdir(constraint_file_path):
+    arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/match.linuxgccrelease',
+           '-database',
+           '/netapp/home/james.lucas/Rosetta/main/database',
+           '-s',
+           current_scaffold_path,
+           '-match::lig_name',
+           '{LIGAND THREE-LETTER CODE}',
+           '-match::grid_boundary',
+           gridlig_path,
+           '-match::scaffold_active_site_residues',
+           posfile_path,
+           '-match::geometric_constraint_file',
+           os.path.join(constraint_file_path, cst_file),
+           '-extra_res_fa',
+           params_path,
+           '-output_matches_per_group',
+           '1',
+           '-match:consolidate_matches',
+           '-ex1',
+           '-ex2',
+           '-extrachi_cutoff',
+           '0',
+           '-use_input_sc',
+           '-euclid_bin_size',
+           '1.5',
+           '-euler_bin_size',
+           '15',
+           '-bump_tolerance',
+           '0.5',
+           '-out::path',
+           output_path,
+           '-match:output_format',
+           'PDB']
 
-outfile_path = os.path.join(target_compound_path, 'stdout', 'rosetta.out')
-rosetta_outfile = open(outfile_path, 'w')
+    outfile_path = os.path.join(target_compound_path, 'stdout', 'rosetta.out')
+    rosetta_outfile = open(outfile_path, 'w')
 
-rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
-return_code = rosetta_process.wait()
-print('Task return code:', return_code, '\n')
-rosetta_outfile.close()
+    rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
+    return_code = rosetta_process.wait()
+    print('Task return code:', return_code, '\n')
+    rosetta_outfile.close()
 
-time_end = roundTime()
-print('Ending time:', time_end)
-print("Elapsed time:", time_end-time_start)
+    time_end = roundTime()
+    print('Ending time:', time_end)
+    print("Elapsed time:", time_end-time_start)
 
-# Calculate RAM usage
-qstat_p = subprocess.Popen(['/usr/local/sge/bin/linux-x64/qstat', '-j', '%d' % job_id], stdout=subprocess.PIPE)
-out, err = qstat_p.communicate()
+    # Calculate RAM usage
+    qstat_p = subprocess.Popen(['/usr/local/sge/bin/linux-x64/qstat', '-j', '%d' % job_id], stdout=subprocess.PIPE)
+    out, err = qstat_p.communicate()
 
-for line in out.split(os.linesep):
-    m = re.match('(?:usage\s+%d[:]\s+.*?)(?:maxvmem[=])(\d+[.]\d+)([a-zA-Z]+)(?:.*?)' % sge_task_id, line)
-    if m:
-        ram_usage = float(m.group(1))
-        ram_usage_type = m.group(2)
-        print('Max virtual memory usage: %.1f%s' % (ram_usage, ram_usage_type))
+    for line in out.split(os.linesep):
+        m = re.match('(?:usage\s+%d[:]\s+.*?)(?:maxvmem[=])(\d+[.]\d+)([a-zA-Z]+)(?:.*?)' % sge_task_id, line)
+        if m:
+            ram_usage = float(m.group(1))
+            ram_usage_type = m.group(2)
+            print('Max virtual memory usage: %.1f%s' % (ram_usage, ram_usage_type))
