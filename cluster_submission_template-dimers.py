@@ -72,7 +72,7 @@ print('Task id:', sge_task_id)
 target_compound_code = sys.argv[1].upper()
 
 # Define relevant paths
-bsff_path = os.path.join('netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
+bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
 scaffold_path = os.path.join(bsff_path, 'Dimer_Scaffolds')
 target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
 constraint_file_path = os.path.join(target_compound_path, 'Pulled_Constraints')
