@@ -5,6 +5,17 @@
 #$ -l h_rt=240:00:00
 #$ -t 1-1624
 #$ -l arch=linux-x64
+#$ -l xe5-2680v3=true
+#$ -l xe5-2680v4=true
+#$ -l xe5-2660v4=true
+#$ -l xe5-2680v4=true
+#$ -l xe5-2640v3=true
+#$ -l xe5-2670=true
+#$ -l xx5650=true
+#$ -l xe5345=true
+#$ -l xe5430=true
+#$ -l xe5520=true
+#$ -l xe5-2670=true
 #$ -l netapp=2G,scratch=1G
 
 # *** qsub from BindingSitesFromFragments root directory *** #
@@ -143,7 +154,8 @@ for cst_file in os.listdir(constraint_file_path):
            '-match:output_format',
            'PDB']
 
-    outfile_path = os.path.join(target_compound_path, 'stdout', 'rosetta.out')
+    print(' '.join(arg))
+    outfile_path = os.path.join(target_compound_path, 'stdout', '{}_rosetta.out'.format(current_scaffold[:-3]))
     rosetta_outfile = open(outfile_path, 'w')
 
     rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
