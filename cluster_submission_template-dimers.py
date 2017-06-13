@@ -144,7 +144,7 @@ for cst_file in os.listdir(constraint_file_path):
            'PDB']
 
     print(' '.join(arg))
-    outfile_path = os.path.join(target_compound_path, 'stdout', '{}-{}-rosetta.out'.format(str(sge_task_id), str(job_id)))
+    outfile_path = os.path.join(target_compound_path, 'stdout', '{}-rosetta.out'.format(current_scaffold[:-2]))
     rosetta_outfile = open(outfile_path, 'w')
 
     rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
