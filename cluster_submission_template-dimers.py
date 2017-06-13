@@ -126,7 +126,7 @@ for cst_file in os.listdir(constraint_file_path):
            '-s',
            current_scaffold_path,
            '-match::lig_name',
-           '{LIGAND THREE-LETTER CODE}',
+           target_compound_code,
            '-match::grid_boundary',
            gridlig_path,
            '-match::scaffold_active_site_residues',
@@ -178,11 +178,14 @@ for cst_file in os.listdir(constraint_file_path):
             ram_usage_type = m.group(2)
             print('Max virtual memory usage: %.1f%s' % (ram_usage, ram_usage_type))
 
-error_out = sys.argv[0] + '.e' + str(job_id) + '.' + str(sge_task_id)
-output_out = sys.argv[0] + '.o' + str(job_id) + '.' + str(sge_task_id)
+error_out = '{}.e{}.{}'.format(sys.argv[0], str(job_id), str(sge_task_id))
+output_out = '{}.o{}.{}'.format(sys.argv[0], str(job_id), str(sge_task_id))
+
+print(error_out)
+print(output_out)
 
 try:
-    shutil.move(error_out , os.path.join(target_compound_path, 'stdout'))
-    shutil.move(output_out ,  os.path.join(target_compound_path, 'stdout'))
+    shutil.move(error_out, os.path.join(target_compound_path, 'stdout'))
+    shutil.move(output_out, os.path.join(target_compound_path, 'stdout'))
 except:
     print('No error or out file!')
