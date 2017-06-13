@@ -91,10 +91,10 @@ print(current_scaffold)
 current_scaffold_path = os.path.join(scaffold_path, 'cleaned_heterodimers_all_biological_units', current_scaffold)
 
 # Get posfile and gridlig files for current scaffold
-posfile_name = current_scaffold[:-3] + 'pos'
+posfile_name = current_scaffold[:-3] + '.pos'
 posfile_path = os.path.join(scaffold_path, 'posfiles', posfile_name)
 
-gridlig_name = current_scaffold[:-3] + 'gridlig'
+gridlig_name = current_scaffold[:-3] + '.gridlig'
 gridlig_path = os.path.join(scaffold_path, 'gridligs', gridlig_name)
 
 # Get params file path
