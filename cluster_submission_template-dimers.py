@@ -86,15 +86,15 @@ number_of_cst_files = len(os.listdir(constraint_file_path))
 scaffold_file = open(os.path.join(scaffold_path, 'filtered_heterodimers_biological_units_100.txt'), 'r')
 scaffold_file_list = [file_name for file_name in scaffold_file]
 
-current_scaffold = scaffold_file_list[sge_task_id]
-
-current_scaffold_path = os.path.join(scaffold_path, 'cleaned_heterodimers_all_biological_units', current_scaffold.strip())
+current_scaffold = scaffold_file_list[sge_task_id].strip()
+print(current_scaffold)
+current_scaffold_path = os.path.join(scaffold_path, 'cleaned_heterodimers_all_biological_units', current_scaffold)
 
 # Get posfile and gridlig files for current scaffold
-posfile_name = current_scaffold[:-3] + '.pos'
+posfile_name = current_scaffold[:-3] + 'pos'
 posfile_path = os.path.join(scaffold_path, 'posfiles', posfile_name)
 
-gridlig_name = current_scaffold[:-3] + '.gridlig'
+gridlig_name = current_scaffold[:-3] + 'gridlig'
 gridlig_path = os.path.join(scaffold_path, 'gridligs', gridlig_name)
 
 # Get params file path
