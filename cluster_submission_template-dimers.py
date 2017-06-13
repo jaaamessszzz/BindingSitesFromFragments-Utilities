@@ -88,7 +88,7 @@ scaffold_file_list = [file_name for file_name in scaffold_file]
 
 current_scaffold = scaffold_file_list[sge_task_id]
 
-current_scaffold_path = os.path.join(scaffold_path, 'cleaned_heterodimers_all_biological_units', current_scaffold)
+current_scaffold_path = os.path.join(scaffold_path, 'cleaned_heterodimers_all_biological_units', current_scaffold.strip())
 
 # Get posfile and gridlig files for current scaffold
 posfile_name = current_scaffold[:-3] + '.pos'
