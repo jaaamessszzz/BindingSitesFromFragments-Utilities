@@ -68,7 +68,8 @@ print('Task id:', sge_task_id)
 # Get arguments from list
 ###
 
-block_size = int(sys.argv[1])
+target_compound_code = int(sys.argv[1])
+block_size = int(sys.argv[2])
 matcher_arg_json = json.load('matcher_argument_list.json')
 
 current_arg_block = matcher_arg_json[(sge_task_id * block_size):((sge_task_id + 1) * block_size)]
@@ -142,6 +143,9 @@ print(error_out)
 print(output_out)
 
 try:
+    bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
+    target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
+
     shutil.move(error_out, os.path.join(target_compound_path, 'stdout'))
     shutil.move(output_out, os.path.join(target_compound_path, 'stdout'))
 except:
