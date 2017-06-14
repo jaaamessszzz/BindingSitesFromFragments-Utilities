@@ -114,7 +114,7 @@ for block in current_arg_block:
 
     print(' '.join(arg))
 
-    outfile_path = os.path.join(block[6], '{}-{}-rosetta.out'.format(sge_task_id, job_id))
+    outfile_path = os.path.join(block[6], '{}-{}-rosetta.out'.format(str(int(os.environ["SGE_TASK_ID"])), str(int(os.environ["JOB_ID"]))))
     rosetta_outfile = open(outfile_path, 'w')
     rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
     return_code = rosetta_process.wait()
