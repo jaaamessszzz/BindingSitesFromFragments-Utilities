@@ -19,6 +19,7 @@ import subprocess
 import os
 from datetime import *
 import shutil
+import json
 import time
 import re
 
@@ -49,7 +50,6 @@ def total_seconds(td):
     '''
     return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
 
-time_start = roundTime()
 
 # SGE_ID and JOD_ID
 sge_task_id=0
@@ -61,69 +61,37 @@ job_id=0
 if os.environ.has_key("JOB_ID"):
     job_id=long(os.environ["JOB_ID"])
 
-print('Starting time:', time_start)
 print('Job id:', job_id)
 print('Task id:', sge_task_id)
 
-###########################
-# Variable and Path Setup #
-###########################
+###
+# Get arguments from list
+###
 
-# Get Target Compound Directory as argv
-target_compound_code = sys.argv[1].upper()
+block_size = int(sys.argv[1])
+matcher_arg_json = json.load('matcher_argument_list.json')
 
-# Define relevant paths
-bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
-scaffold_path = os.path.join(bsff_path, 'Dimer_Scaffolds')
-target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
-constraint_file_path = os.path.join(target_compound_path, 'Pulled_Constraints')
+current_arg_block = matcher_arg_json[(sge_task_id * block_size):((sge_task_id + 1) * block_size)]
 
-# Get number of constraint files for target compound
-number_of_cst_files = len(os.listdir(constraint_file_path))
+for block in current_arg_block:
+    time_start = roundTime()
+    print('Starting time:', time_start)
 
-# Get scaffold file name
-# Modulus of SGE_ID by # of constraint files
-scaffold_file = open(os.path.join(scaffold_path, 'filtered_heterodimers_biological_units_100.txt'), 'r')
-scaffold_file_list = [file_name for file_name in scaffold_file]
-
-current_scaffold = scaffold_file_list[sge_task_id].strip()
-print(current_scaffold)
-current_scaffold_path = os.path.join(scaffold_path, 'cleaned_heterodimers_all_biological_units', current_scaffold)
-
-# Get posfile and gridlig files for current scaffold
-posfile_name = current_scaffold[:-3] + '.pos'
-posfile_path = os.path.join(scaffold_path, 'posfiles', posfile_name)
-
-gridlig_name = current_scaffold[:-3] + '.gridlig'
-gridlig_path = os.path.join(scaffold_path, 'gridligs', gridlig_name)
-
-# Get params file path
-params_name = target_compound_code + '.params'
-params_path = os.path.join(target_compound_path, params_name)
-
-# Output path
-output_path = os.path.join(target_compound_path, 'matches')
-
-###########################
-#   Construct Arguement   #
-###########################
-
-for cst_file in os.listdir(constraint_file_path):
     arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/match.linuxgccrelease',
            '-database',
            '/netapp/home/james.lucas/Rosetta/main/database',
            '-s',
-           current_scaffold_path,
+           block[0],
            '-match::lig_name',
-           target_compound_code,
+           block[1],
            '-match::grid_boundary',
-           gridlig_path,
+           block[2],
            '-match::scaffold_active_site_residues',
-           posfile_path,
+           block[3],
            '-match::geometric_constraint_file',
-           os.path.join(constraint_file_path, cst_file),
+           block[4],
            '-extra_res_fa',
-           params_path,
+           block[5],
            '-output_matches_per_group',
            '1',
            '-match:consolidate_matches',
@@ -133,20 +101,23 @@ for cst_file in os.listdir(constraint_file_path):
            '0',
            '-use_input_sc',
            '-euclid_bin_size',
-           '1.5',
+           '1', # Roland : 1.5
            '-euler_bin_size',
-           '15',
+           '10', # Roland: 15
            '-bump_tolerance',
            '0.5',
            '-out::path',
-           output_path,
+           block[6],
            '-match:output_format',
            'PDB']
 
     print(' '.join(arg))
 
-    rosetta_process = subprocess.Popen(arg, cwd=os.getcwd())
+    outfile_path = os.path.join(block[6], '{}-{}-rosetta.out'.format(sge_task_id, job_id))
+    rosetta_outfile = open(outfile_path, 'w')
+    rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
     return_code = rosetta_process.wait()
+
     print('Task return code:', return_code, '\n')
 
     time_end = roundTime()
