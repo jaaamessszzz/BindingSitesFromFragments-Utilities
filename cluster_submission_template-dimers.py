@@ -70,7 +70,7 @@ print('Task id:', sge_task_id)
 
 target_compound_code = sys.argv[1]
 block_size = int(sys.argv[2])
-matcher_arg_json = json.load('matcher_argument_list.json')
+matcher_arg_json = json.load(open('matcher_argument_list.json', 'r'))
 
 current_arg_block = matcher_arg_json[(sge_task_id * block_size):((sge_task_id + 1) * block_size)]
 
