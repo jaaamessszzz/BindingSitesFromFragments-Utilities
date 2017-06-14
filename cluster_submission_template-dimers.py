@@ -68,7 +68,7 @@ print('Task id:', sge_task_id)
 # Get arguments from list
 ###
 
-target_compound_code = int(sys.argv[1])
+target_compound_code = sys.argv[1]
 block_size = int(sys.argv[2])
 matcher_arg_json = json.load('matcher_argument_list.json')
 
