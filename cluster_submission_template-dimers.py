@@ -114,7 +114,7 @@ for block in current_arg_block:
 
     print(' '.join(arg))
 
-    outfile_path = os.path.join(block[6], '%d-rosetta.out'%sge_task_id)
+    outfile_path = os.path.join(block[6], '{0}-rosetta.out'.format(sge_task_id))
     rosetta_outfile = open(outfile_path, 'w')
     rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
     return_code = rosetta_process.wait()
@@ -136,8 +136,8 @@ for block in current_arg_block:
             ram_usage_type = m.group(2)
             print('Max virtual memory usage: %.1f%s' % (ram_usage, ram_usage_type))
 
-error_out = '{}.e{}.{}'.format(sys.argv[0], str(job_id), str(sge_task_id))
-output_out = '{}.o{}.{}'.format(sys.argv[0], str(job_id), str(sge_task_id))
+error_out = '{0}.e{1}.{2}'.format(sys.argv[0], str(job_id), str(sge_task_id))
+output_out = '{0}.o{1}.{2}'.format(sys.argv[0], str(job_id), str(sge_task_id))
 
 print(error_out)
 print(output_out)
