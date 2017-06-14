@@ -3,7 +3,7 @@
 #$ -cwd
 #$ -r yes
 #$ -l h_rt=240:00:00
-#$ -t 1-1624
+#$ -t 1-25460
 #$ -l arch=linux-x64
 #$ -l netapp=2G,scratch=1G
 
