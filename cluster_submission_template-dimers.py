@@ -3,7 +3,7 @@
 #$ -cwd
 #$ -r yes
 #$ -l h_rt=240:00:00
-#$ -t 1-25460
+#$ -t 1-20368
 #$ -l arch=linux-x64
 #$ -l netapp=2G,scratch=1G
 
@@ -70,9 +70,12 @@ print('Task id:', sge_task_id)
 
 target_compound_code = sys.argv[1]
 block_size = int(sys.argv[2])
-matcher_arg_json = json.load(open('matcher_argument_list.json', 'r'))
 
+matcher_arg_json = json.load(open('matcher_argument_list.json', 'r'))
 current_arg_block = matcher_arg_json[(sge_task_id * block_size):((sge_task_id + 1) * block_size)]
+
+bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
+target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
 
 for block in current_arg_block:
     time_start = roundTime()
@@ -114,7 +117,10 @@ for block in current_arg_block:
 
     print(' '.join(arg))
 
-    outfile_path = os.path.join(block[6], '{0}-rosetta.out'.format(sge_task_id))
+    scaffold = os.path.basename(os.path.normpath(block[0])).split('.')[0]
+    constraint = os.path.basename(os.path.normpath(block[4])).split('.')[0]
+
+    outfile_path = os.path.join(target_compound_path, 'stdout', '{0}-{1}.out'.format(scaffold, constraint))
     rosetta_outfile = open(outfile_path, 'w')
     rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
     return_code = rosetta_process.wait()
@@ -143,9 +149,6 @@ print(error_out)
 print(output_out)
 
 try:
-    bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
-    target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
-
     shutil.move(error_out, os.path.join(target_compound_path, 'stdout'))
     shutil.move(output_out, os.path.join(target_compound_path, 'stdout'))
 except:
