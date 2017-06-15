@@ -64,12 +64,16 @@ if os.environ.has_key("JOB_ID"):
 print('Job id:', job_id)
 print('Task id:', sge_task_id)
 
-###
-# Get arguments from list
-###
+########################
+# Positional arguments #
+########################
 
 target_compound_code = sys.argv[1]
 block_size = int(sys.argv[2])
+
+##########################
+# Start submitting tasks #
+##########################
 
 matcher_arg_json = json.load(open('matcher_argument_list.json', 'r'))
 current_arg_block = matcher_arg_json[(sge_task_id * block_size):((sge_task_id + 1) * block_size)]
@@ -120,7 +124,7 @@ for block in current_arg_block:
     scaffold = os.path.basename(os.path.normpath(block[0])).split('.')[0]
     constraint = os.path.basename(os.path.normpath(block[4])).split('.')[0]
 
-    outfile_path = os.path.join(target_compound_path, 'stdout', '{0}-{1}.out'.format(scaffold, constraint))
+    outfile_path = os.path.join(os.path.split(block[6])[0], 'stdout', '{0}-{1}.out'.format(scaffold, constraint))
     rosetta_outfile = open(outfile_path, 'w')
     rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
     return_code = rosetta_process.wait()
