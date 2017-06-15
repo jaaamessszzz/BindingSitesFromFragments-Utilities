@@ -29,6 +29,7 @@ import os
 import sys
 import re
 import pandas as pd
+import numpy as np
 import prody
 import pprint
 from utils import pdb_check
@@ -100,7 +101,7 @@ class Filter_Matches:
             interface_CB_contact_percentage = len(set(ligand_shell_six.getIndices()) & set(interface_cb.getIndices())) / len(interface_cb)
             print(interface_CB_contact_percentage)
 
-    def calculate_rmsd_stats(self, match_prody, ideal_name):
+    def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs):
         """
         RMSD things
         :param match_prody: prody of match PDB
@@ -109,11 +110,35 @@ class Filter_Matches:
         """
         ideal_prody = self.ideal_bs_dict[ideal_name]
         print(ideal_prody)
+        print(match_prody)
+
         # Calculate RMSD to ideal binding site  (side chains only, not ligand)
 
+        # Atom orders are all messed up in the matched PDBs, need to manually reorder them before aligning coordsets
+        ideal_atom_order = ideal_prody.select('resname {}'.format(self.ligand)).getNames()
+        match_atom_list = [match_prody.select('resname {} and name {}'.format(self.ligand, atom)) for atom in ideal_atom_order]
+        match_atom_coords = np.asarray([atom.getCoords()[0] for atom in match_atom_list])
+
         # superpose match ligand onto ideal ligand (RMSD should be ~0)
+        ideal_ligand = ideal_prody.select('resname {}'.format(self.ligand))
+        transformation = prody.calcTransformation(ideal_ligand.getCoords(), match_atom_coords)
+        transformed_ideal_prody = prody.applyTransformation(transformation, ideal_prody)
+
+        print('RMSD')
+        print(prody.calcRMSD(transformed_ideal_prody.select('resname {}'.format(self.ligand)), match_atom_coords))
+
+        # Debugging
+        prody.writePDB('ideal.pdb', transformed_ideal_prody)
+        prody.writePDB('match.pdb', match_prody.select('resname {}'.format(self.ligand)))
+
         # Select residues from ideal and get coords
+        print([res for res in transformed_ideal_prody])
+        ideal_res_coord_list = []
+
         # Select residues from match and get coords
+        print(motif_residue_IDs)
+        match_res_coord_list = []
+
         # calc rmsd between superposed match and ideal
 
         # Calculate match score as defined by Roland
@@ -162,11 +187,12 @@ if __name__ == '__main__':
         motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
         motif_residue_IDs = [(res_one_to_three[motif_residue_ID_list[indx]], motif_residue_ID_list[indx + 1]) for indx in range(0, len(motif_residue_ID_list), 2)]
 
-        filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name)
+        filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs)
 
         # neighbor bin of motif residues (i.e. number of CB atoms within 8A° of any motif residue CB atom)
         # minimum number of motif residues per chain
 
+        break
     # Aggragate results
     # Return passing matcher results
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
