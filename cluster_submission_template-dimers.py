@@ -109,16 +109,20 @@ for block in current_arg_block:
            '0',
            '-use_input_sc',
            '-euclid_bin_size',
-           '2', # Roland : 1.5
+           '1.5', # Roland : 1.5
            '-euler_bin_size',
-           '20', # Roland: 15
+           '15', # Roland: 15
            '-bump_tolerance',
            '0.5',
            '-out::path',
            block[6],
            '-match:output_format',
            'PDB',
-           '-out:file:scorefile'] # match scores
+           '-out:file:scorefile', # match scores
+           '-match_grouper',
+           'SameSequenceGrouper', # Two matches belong in the same group if their hits come from the same amino acds at the same scaffold build positions
+           '-mute',
+           'protocols.idealize']
 
     print(' '.join(arg))
 

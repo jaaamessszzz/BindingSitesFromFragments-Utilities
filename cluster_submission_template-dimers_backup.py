@@ -118,7 +118,11 @@ for block in current_arg_block:
            block[6],
            '-match:output_format',
            'PDB',
-           '-out:file:scorefile'] # match scores
+           '-out:file:scorefile', # match scores
+           '-match_grouper',
+           'SameSequenceGrouper', # Two matches belong in the same group if their hits come from the same amino acds at the same scaffold build positions
+           '-mute',
+           'protocols.idealize']
 
     print(' '.join(arg))
 
