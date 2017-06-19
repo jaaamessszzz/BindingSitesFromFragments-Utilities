@@ -5,7 +5,7 @@
 #$ -l h_rt=240:00:00
 #$ -t 1-20000
 #$ -l arch=linux-x64
-#$ -l netapp=2G,scratch=1G
+#$ -l netapp=6G,scratch=1G
 
 # *** qsub from BindingSitesFromFragments root directory *** #
 # Make sure you set task number above to be correct!!!
@@ -109,9 +109,9 @@ for block in current_arg_block:
            '0',
            '-use_input_sc',
            '-euclid_bin_size',
-           '1.5', # Roland : 1.5
+           '2', # Roland : 1.5
            '-euler_bin_size',
-           '15', # Roland: 15
+           '20', # Roland: 15
            '-bump_tolerance',
            '0.5',
            '-out::path',
