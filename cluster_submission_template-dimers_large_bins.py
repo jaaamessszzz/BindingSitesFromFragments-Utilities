@@ -5,13 +5,13 @@
 #$ -l h_rt=240:00:00
 #$ -t 1-20000
 #$ -l arch=linux-x64
-#$ -l netapp=6G,scratch=1G
+#$ -l netapp=40G,scratch=4G
 
 # *** qsub from BindingSitesFromFragments root directory *** #
 # Make sure you set task number above to be correct!!!
 
-# TEP cst files - 655
-# 100% identity dimer scaffolds - 1624
+# TEP cst files - 399
+# 100% identity dimer scaffolds - 1273
 
 import socket
 import sys
@@ -109,9 +109,9 @@ for block in current_arg_block:
            '0',
            '-use_input_sc',
            '-euclid_bin_size',
-           '2', # Roland : 1.5
+           '1.5', # Roland : 1.5
            '-euler_bin_size',
-           '20', # Roland: 15
+           '15', # Roland: 15
            '-bump_tolerance',
            '0.5',
            '-out::path',
@@ -151,8 +151,8 @@ for block in current_arg_block:
             ram_usage_type = m.group(2)
             print('Max virtual memory usage: %.1f%s' % (ram_usage, ram_usage_type))
 
-error_out = '{0}.e{1}.{2}'.format(sys.argv[0], str(job_id), str(sge_task_id))
-output_out = '{0}.o{1}.{2}'.format(sys.argv[0], str(job_id), str(sge_task_id))
+error_out = '{0}.e{1}.{2}'.format('cluster_submission_template-dimers_large_bins.py', str(job_id), str(sge_task_id))
+output_out = '{0}.o{1}.{2}'.format('cluster_submission_template-dimers_large_bins.py', str(job_id), str(sge_task_id))
 
 print(error_out)
 print(output_out)
