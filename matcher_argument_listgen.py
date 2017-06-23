@@ -4,11 +4,14 @@
 Generate a list of argument lists for matcher cluster runs and export as json
 
 Usage:
-    matcher_argument_listgen <target_compound> <scaffold_file_path> <cst_dir>
+    matcher_argument_listgen <target_compound> <working_dir_name> <scaffold_file_path> <cst_dir>
 
 Arguments:     
     <target_compound>
         Three letter code of target compound
+    
+    <working_dir_name> 
+        Name of the directory under {bsff_path}/Compounds/{target_compound_code}
         
     <scaffold_file_path>
         Path to file containing list of scaffold PDBs
@@ -37,7 +40,8 @@ target_compound_code = args['<target_compound>']
 bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
 scaffold_path = os.path.join(bsff_path, 'Dimer_Scaffolds')
 target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
-constraint_file_path = os.path.join(target_compound_path, 'Pulled_Constraints')
+working_dir_path = os.path.join(target_compound_path, args['<working_dir_name>'])
+constraint_file_path = os.path.join(working_dir_path, 'cst_files')
 
 # Get number of constraint files for target compound (local)
 number_of_cst_files = len(os.listdir(args['<cst_dir>']))
@@ -70,7 +74,7 @@ for scaffold in scaffold_file_list:
         params_path = os.path.join(target_compound_path, params_name)
 
         # Output path
-        output_path = os.path.join(target_compound_path, 'matches')
+        output_path = os.path.join(working_dir_path, 'matches')
 
         arg = [current_scaffold_path,
                target_compound_code,
