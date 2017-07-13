@@ -13,7 +13,7 @@ Arguments:
         
     <match_PDB_dir>
         Directory containing all matches for a given target compound
-    
+
     <ideal_binding_site_dir>
         Directory containing ideal binding site PDBs as generated using BSFF 
         under Complete_Matcher_Constraints/Binding_Site_PDBs
@@ -79,7 +79,7 @@ class Filter_Matches:
 
         return df_temp
 
-    def calculate_CB_stats(self, match_prody):
+    def calculate_CB_stats(self, match_prody, motif_residue_IDs):
         """
         Count CB atoms and all related metrics
         :param match_prody: prody object of matched PDB
@@ -87,7 +87,7 @@ class Filter_Matches:
         """
         # Calculate number of CB atoms within 10A of ligand
         ligand_shell_ten = match_prody.select('name CB within 10 of resname {}'.format(self.ligand))
-        print(len(ligand_shell_ten))
+        print('Ligand 10A shell CB count: {}'.format(len(ligand_shell_ten)))
 
         # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
         chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
@@ -99,7 +99,22 @@ class Filter_Matches:
 
             ligand_shell_six = match_prody.select('name CB within 6 of resname {}'.format(self.ligand))
             interface_CB_contact_percentage = len(set(ligand_shell_six.getIndices()) & set(interface_cb.getIndices())) / len(interface_cb)
-            print(interface_CB_contact_percentage)
+            print('Interface CB contact percentage: {}'.format(interface_CB_contact_percentage))
+
+        # neighbor bin of motif residues (i.e. number of CB atoms within 8A° of any motif residue CB atom)
+        motif_resnums = [res[1] for res in motif_residue_IDs]
+        motif_shell_CB = len(match_prody.select('name CB within 8 of (resnum {} or resnum {} or resnum {} or resnum {})'\
+                                                .format(motif_resnums[0],
+                                                        motif_resnums[1],
+                                                        motif_resnums[2],
+                                                        motif_resnums[3]
+                                                        )
+                                                )
+                             )
+
+        print('Motif chell CB count: {}'.format(motif_shell_CB))
+
+        return ligand_shell_ten, interface_CB_contact_percentage, motif_shell_CB
 
     def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs):
         """
@@ -109,8 +124,6 @@ class Filter_Matches:
         :return: 
         """
         ideal_prody = self.ideal_bs_dict[ideal_name]
-        print(ideal_prody)
-        print(match_prody)
 
         # Calculate RMSD to ideal binding site  (side chains only, not ligand)
 
@@ -124,28 +137,25 @@ class Filter_Matches:
         transformation = prody.calcTransformation(ideal_ligand.getCoords(), match_atom_coords)
         transformed_ideal_prody = prody.applyTransformation(transformation, ideal_prody)
 
-        print('RMSD')
-        print(prody.calcRMSD(transformed_ideal_prody.select('resname {}'.format(self.ligand)), match_atom_coords))
+        print('RMSD: {}'.format(prody.calcRMSD(transformed_ideal_prody.select('resname {}'.format(self.ligand)), match_atom_coords)))
 
         # Debugging
-        prody.writePDB('ideal.pdb', transformed_ideal_prody)
-        prody.writePDB('match.pdb', match_prody.select('resname {}'.format(self.ligand)))
+        # prody.writePDB('ideal.pdb', transformed_ideal_prody)
+        # prody.writePDB('match.pdb', match_prody.select('resname {}'.format(self.ligand)))
 
         # Select residues from ideal and get coords
-        print([res for res in transformed_ideal_prody])
-        ideal_res_coord_list = []
+        hv = transformed_ideal_prody.getHierView()
+        ideal_residue_prody_list = [res.select('not hydrogen') for res in hv.iterResidues()]
 
         # Select residues from match and get coords
-        print(motif_residue_IDs)
-        match_res_coord_list = []
-
-        # calc rmsd between superposed match and ideal
+        motif_residue_prody_list = [match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) for res_tuple in motif_residue_IDs]
 
         # Calculate match score as defined by Roland
+        match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
+        print([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
+        print('Match score: {}'.format(match_score))
 
-        # sum(RMSD For each residue in superposed match and ideal)
-
-
+        return match_score
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)
@@ -169,14 +179,6 @@ if __name__ == '__main__':
         print(os.path.basename(os.path.normpath(matched_PDB)))
         match_prody = prody.parsePDB(matched_PDB)
 
-        # Calculate number of CB atoms within 10A of ligand
-        # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
-
-        filter.calculate_CB_stats(match_prody)
-
-        # Calculate match score as defined by Roland
-        # Calculate RMSD to ideal binding site  (side chains only, not ligand)
-
         # Parse matched_PDB to get ideal binding site name and residues
         pnc = re.split('_|-|\.', os.path.basename(os.path.normpath(matched_PDB)))
 
@@ -187,12 +189,26 @@ if __name__ == '__main__':
         motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
         motif_residue_IDs = [(res_one_to_three[motif_residue_ID_list[indx]], motif_residue_ID_list[indx + 1]) for indx in range(0, len(motif_residue_ID_list), 2)]
 
+        # Calculate number of CB atoms within 10A of ligand
+        # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
+
+        filter.calculate_CB_stats(match_prody, motif_residue_IDs)
+
+        # Calculate match score as defined by Roland
+        # Calculate RMSD to ideal binding site  (side chains only, not ligand)
+
         filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs)
 
-        # neighbor bin of motif residues (i.e. number of CB atoms within 8A° of any motif residue CB atom)
         # minimum number of motif residues per chain
+        # todo: accomodate cases where all residues are on one chain! Currently returns 4 b/c list of res.getChIDs() is used to determine this
+        motif_resnums = [res[1] for res in motif_residue_IDs]
+        motif_residues = [match_prody.select('resnum {}'.format(motif_resnum)) for motif_resnum in motif_resnums]
+        motif_residue_chain_list = [res.getChids()[0] for res in motif_residues]
+        min_res_per_chain = min([motif_residue_chain_list.count(chain) for chain in (set(motif_residue_chain_list) - set('X'))])
 
-        break
+        print(min_res_per_chain)
+        print('\n')
+
     # Aggragate results
     # Return passing matcher results
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
