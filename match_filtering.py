@@ -5,7 +5,7 @@ Filter matches for a given target compound using constraints generated with the
 BSFF package. 
 
 Usage:
-    match_filtering <ligand> <match_PDB_dir> <ideal_binding_site_dir> [--monomer]
+    match_filtering <ligand> <match_PDB_dir> <match_sc_path> <ideal_binding_site_dir> [--monomer]
 
 Arguments:     
     <ligand>
@@ -13,6 +13,9 @@ Arguments:
         
     <match_PDB_dir>
         Directory containing all matches for a given target compound
+
+    <match_sc_path>
+        Path to match_score.sc
 
     <ideal_binding_site_dir>
         Directory containing ideal binding site PDBs as generated using BSFF 
@@ -51,12 +54,13 @@ class Filter_Matches:
     * minimum number of motif residues per chain
     """
 
-    def __init__(self, ligand, match_PDB_dir, ideal_bs_dir, monomer=False):
+    def __init__(self, ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=False):
         self.ligand = ligand
         self.monomer = monomer
         self.match_PDB_dir = match_PDB_dir
         self.ideal_bs_dir = ideal_bs_dir
         self.ideal_bs_dict = self._import_ideal_binding_sites()
+        self.match_score_dict = {line.split()[0]: float(line.split()[1]) for line in open(match_sc_path) if line.split()[0] != 'match_name'}
         self.df = self._set_up_dataframe()
 
     def _import_ideal_binding_sites(self):
@@ -75,8 +79,15 @@ class Filter_Matches:
         Set up a Pandas Dataframe to record all relevant match metrics
         :return: 
         """
-        df_temp = pd.DataFrame()
-
+        df_temp = pd.DataFrame(columns=['match_name',
+                                        'ligand_shell_ten',
+                                        'interface_CB_contact_percentage',
+                                        'motif_shell_CB',
+                                        'residue_match_score',
+                                        'ligand_match_score',
+                                        'min_res_per_chain'
+                                        ]
+                               )
         return df_temp
 
     def calculate_CB_stats(self, match_prody, motif_residue_IDs):
@@ -88,6 +99,10 @@ class Filter_Matches:
         # Calculate number of CB atoms within 10A of ligand
         ligand_shell_ten = match_prody.select('name CB within 10 of resname {}'.format(self.ligand))
         print('Ligand 10A shell CB count: {}'.format(len(ligand_shell_ten)))
+
+        # todo: UM_1_Y176W276Q170Q177_1_2BH1_TEP_0001_21-22-25-5_1.pdb oesn't have two chains???
+        interface_CB_contact_percentage = 0
+        motif_shell_CB = 0
 
         # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
         chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
@@ -113,10 +128,9 @@ class Filter_Matches:
                              )
 
         print('Motif chell CB count: {}'.format(motif_shell_CB))
-
         return ligand_shell_ten, interface_CB_contact_percentage, motif_shell_CB
 
-    def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs):
+    def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs, match_name):
         """
         RMSD things
         :param match_prody: prody of match PDB
@@ -150,12 +164,22 @@ class Filter_Matches:
         # Select residues from match and get coords
         motif_residue_prody_list = [match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) for res_tuple in motif_residue_IDs]
 
-        # Calculate match score as defined by Roland
-        match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
-        print([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
-        print('Match score: {}'.format(match_score))
+        # Calculate match score as defined by ME!
+        # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
+        try:
+            residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
+            print('Match score: {}'.format(residue_match_score))
+        except:
+            residue_match_score = 9999
 
-        return match_score
+        # Get ligand match score from matcher_scores.sc
+        # todo: sometimes things aren't added to the match_score.sc??
+        if match_name.split('.')[0] in list(self.match_score_dict.keys()):
+            ligand_match_score = self.match_score_dict[match_name.split('.')[0]]
+        else:
+            ligand_match_score = 9999
+
+        return residue_match_score, ligand_match_score
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)
@@ -164,19 +188,21 @@ if __name__ == '__main__':
     match_PDB_dir = args['<match_PDB_dir>']
     ideal_bs_dir = args['<ideal_binding_site_dir>']
     monomer = args['--monomer']
+    match_sc_path = args['<match_sc_path>']
 
     res_one_to_three = {'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU', 'F': 'PHE',
                         'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'K': 'LYS', 'L': 'LEU',
                         'M': 'MET', 'N': 'ASN', 'P': 'PRO', 'Q': 'GLN', 'R': 'ARG',
                         'S': 'SER', 'T': 'THR', 'V': 'VAL', 'W': 'TRP', 'Y': 'TYR'}
 
-    filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, monomer=monomer)
-
+    filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer)
     pprint.pprint(filter.ideal_bs_dict)
+    row_list = []
 
     # Calculate stats for each matched PDB
     for matched_PDB in pdb_check(match_PDB_dir):
-        print(os.path.basename(os.path.normpath(matched_PDB)))
+        match_name = os.path.basename(os.path.normpath(matched_PDB))
+        print(match_name)
         match_prody = prody.parsePDB(matched_PDB)
 
         # Parse matched_PDB to get ideal binding site name and residues
@@ -192,23 +218,41 @@ if __name__ == '__main__':
         # Calculate number of CB atoms within 10A of ligand
         # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
 
-        filter.calculate_CB_stats(match_prody, motif_residue_IDs)
+        ligand_shell_ten, interface_CB_contact_percentage, motif_shell_CB = filter.calculate_CB_stats(match_prody, motif_residue_IDs)
 
         # Calculate match score as defined by Roland
         # Calculate RMSD to ideal binding site  (side chains only, not ligand)
 
-        filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs)
+        residue_match_score, ligand_match_score = filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs, match_name)
 
         # minimum number of motif residues per chain
         # todo: accomodate cases where all residues are on one chain! Currently returns 4 b/c list of res.getChIDs() is used to determine this
         motif_resnums = [res[1] for res in motif_residue_IDs]
         motif_residues = [match_prody.select('resnum {}'.format(motif_resnum)) for motif_resnum in motif_resnums]
         motif_residue_chain_list = [res.getChids()[0] for res in motif_residues]
-        min_res_per_chain = min([motif_residue_chain_list.count(chain) for chain in (set(motif_residue_chain_list) - set('X'))])
+
+        # todo: UM_1_D267F289Y271Q279_1_2BH1_TEP_0001-10-18-21-25_1 is empty??
+        try:
+            min_res_per_chain = min([motif_residue_chain_list.count(chain) for chain in (set(motif_residue_chain_list) - set('X'))])
+        except:
+            min_res_per_chain = 9999
 
         print(min_res_per_chain)
         print('\n')
 
-    # Aggragate results
+        # Aggragate results
+        row_dict = {'match_name': match_name,
+                    'ligand_shell_ten': ligand_shell_ten,
+                    'interface_CB_contact_percentage': interface_CB_contact_percentage,
+                    'motif_shell_CB': motif_shell_CB,
+                    'residue_match_score': residue_match_score,
+                    'ligand_match_score': ligand_match_score,
+                    'min_res_per_chain': min_res_per_chain
+                    }
+        row_list.append(row_dict)
+
     # Return passing matcher results
+    df = pd.DataFrame(row_list)
+    df.to_csv('RESULTS.csv')
+
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
