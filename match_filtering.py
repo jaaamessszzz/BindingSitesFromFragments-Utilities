@@ -244,8 +244,10 @@ if __name__ == '__main__':
             # todo: UM_1_D267F289Y271Q279_1_2BH1_TEP_0001-10-18-21-25_1 is empty??
             try:
                 min_res_per_chain = min([motif_residue_chain_list.count(chain) for chain in (set(motif_residue_chain_list) - set('X'))])
+                if min_res_per_chain == 4:
+                    min_res_per_chain = 0
             except:
-                min_res_per_chain = 9999
+                min_res_per_chain = -1
 
             print(min_res_per_chain)
             print('\n')
