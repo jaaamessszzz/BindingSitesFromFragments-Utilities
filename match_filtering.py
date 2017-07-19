@@ -104,7 +104,7 @@ class Filter_Matches:
         """
         # Calculate number of CB atoms within 11A of ligand
         ligand_shell_eleven = len(match_prody.select('name CB within 11 of resname {}'.format(self.ligand)))
-        print('Ligand 11A shell CB count: {}'.format(len(ligand_shell_eleven)))
+        print('Ligand 11A shell CB count: {}'.format(ligand_shell_eleven))
 
         # todo: UM_1_Y176W276Q170Q177_1_2BH1_TEP_0001_21-22-25-5_1.pdb oesn't have two chains???
         interface_CB_contact_percentage = 0
