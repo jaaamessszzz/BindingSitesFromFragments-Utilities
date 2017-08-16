@@ -5,7 +5,8 @@
 #$ -l h_rt=240:00:00
 #$ -t 1-20000
 #$ -l arch=linux-x64
-#$ -l netapp=40G,scratch=4G
+#$ -l mem_free=10G
+#$ -l netapp=10G,scratch=4G
 
 # *** qsub from BindingSitesFromFragments root directory *** #
 # Make sure you set task number above to be correct!!!

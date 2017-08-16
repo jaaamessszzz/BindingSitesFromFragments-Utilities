@@ -11,7 +11,7 @@ Arguments:
         Three letter code of target compound
     
     <working_dir_name> 
-        Name of the directory under {bsff_path}/Compounds/{target_compound_code}
+        Name of the directory under {bsff_path}/Compounds/{target_compound_code} on cluster
         
     <scaffold_file_path>
         Path to file containing list of scaffold PDBs
