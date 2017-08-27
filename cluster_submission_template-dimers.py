@@ -5,10 +5,10 @@
 #$ -l h_rt=240:00:00
 #$ -t 1-20000
 #$ -l arch=linux-x64
-#$ -l mem_free=10G
-#$ -l netapp=10G,scratch=4G
+#$ -l mem_free=4G
+#$ -l netapp=4G,scratch=2G
 
-# *** qsub from BindingSitesFromFragments root directory *** #
+# *** qsub from compound project directory *** #
 # Make sure you set task number above to be correct!!!
 
 # TEP cst files - 655
