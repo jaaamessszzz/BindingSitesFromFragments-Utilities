@@ -4,7 +4,7 @@
 Generate a list of argument lists for matcher cluster runs and export as json
 
 Usage:
-    matcher_argument_listgen <target_compound> <working_dir_name> <scaffold_file_path> <cst_dir>
+    matcher_argument_listgen <target_compound> <working_dir_name> <scaffold_file_path> <cst_dir> [-m]
 
 Arguments:     
     <target_compound>
@@ -20,7 +20,8 @@ Arguments:
         Path to directory containing the target constraint files
         
 Options:
-        
+    -m --multiple_params
+        Multiple params files needed!
 """
 import os
 import sys
@@ -70,7 +71,11 @@ for scaffold in scaffold_file_list:
         gridlig_path = os.path.join(scaffold_path, 'gridligs', gridlig_name)
 
         # Get params file path
-        params_name = target_compound_code + '.params'
+        if args['--multiple_params']:
+            params_name = os.path.join('params', constraint.split('-')[0] + '.params')
+        else:
+            params_name = target_compound_code + '.params'
+
         params_path = os.path.join(target_compound_path, params_name)
 
         # Output path
