@@ -15,10 +15,10 @@ import os
 ssh_open = ['ssh',
             '-M',
             '-S',
-            'my-ctrl-socket',
+            'gurobi_socket',
             '-fnNT',
             '-L',
-            '7001:guybrush.ucsf.edu:41954',
+            '9002:guybrush.ucsf.edu:41954',
             'sous.compbio.ucsf.edu'
             ]
 
@@ -29,7 +29,7 @@ gurobi_test.wait()
 
 ssh_close = ['ssh',
              '-S',
-             'my-ctrl-socket',
+             'gurobi_socket',
              '-O',
              'exit',
              'sous.compbio.ucsf.edu'
