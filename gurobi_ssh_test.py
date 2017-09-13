@@ -1,4 +1,4 @@
-#! .local/lib/python2.7
+#! /netapp/home/james.lucas/.local/lib/python2.7
 #$ -S /usr/bin/python
 #$ -cwd
 #$ -r yes
