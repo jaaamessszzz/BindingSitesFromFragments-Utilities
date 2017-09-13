@@ -24,7 +24,12 @@ ssh_open = ['ssh',
 
 ssh_open_p = subprocess.Popen(ssh_open)
 ssh_open_p.wait()
-gurobi_test = subprocess.Popen(['gurobi.sh'])
+gurobi_test = subprocess.Popen(['scl',
+                                'enable',
+                                'python27',
+                                '\'gurobi.sh\''
+                                ]
+                               )
 gurobi_test.wait()
 
 ssh_close = ['ssh',
