@@ -28,10 +28,7 @@ ssh_open_p.wait()
 gurobi_test = subprocess.Popen(['scl',
                                 'enable',
                                 'python27',
-                                '\'',
-                                'python'
-                                '/netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/import_gurobi.py',
-                                '\''
+                                'python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/import_gurobi.py'
                                 ]
                                )
 gurobi_test.wait()
