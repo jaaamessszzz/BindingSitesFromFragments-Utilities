@@ -12,12 +12,13 @@ import subprocess
 
 # ssh port forwarding
 ssh_open = ['ssh',
+            '-4',
             '-M',
             '-S',
             'gurobi_socket',
             '-fnNT',
             '-L',
-            '9002:guybrush.ucsf.edu:41954',
+            '9002:guybrush-pi.compbio.ucsf.edu:41954',
             'sous.compbio.ucsf.edu'
             ]
 
