@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#! .local/lib/python2.7
 #$ -S /usr/bin/python
 #$ -cwd
 #$ -r yes
