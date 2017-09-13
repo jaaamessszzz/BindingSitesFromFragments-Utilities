@@ -10,6 +10,7 @@
 
 import subprocess
 
+# ssh port forwarding
 ssh_open = ['ssh',
             '-M',
             '-S',
@@ -23,30 +24,25 @@ ssh_open = ['ssh',
 ssh_open_p = subprocess.Popen(ssh_open)
 ssh_open_p.wait()
 
-try:
-    gurobi_shell = subprocess.Popen(['scl',
-                                     'enable',
-                                     'python27',
-                                     'gurobi.sh'
-                                     ]
-                                    )
-    gurobi_shell.wait()
+# Gurobi shell
+gurobi_shell = subprocess.Popen(['scl',
+                                 'enable',
+                                 'python27',
+                                 'gurobi.sh'
+                                 ]
+                                )
+gurobi_shell.wait()
 
-except Exception as e:
-    print "Shell failed with exception: {0}".format(e)
+# Gurobi python import
+gurobi_python = subprocess.Popen(['scl',
+                                  'enable',
+                                  'python27',
+                                  'python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/import_gurobi.py'
+                                  ]
+                                 )
+gurobi_python.wait()
 
-try:
-    gurobi_python = subprocess.Popen(['scl',
-                                      'enable',
-                                      'python27',
-                                      'python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/import_gurobi.py'
-                                      ]
-                                     )
-    gurobi_python.wait()
-
-except Exception as e:
-    print "Python Import faied with exception {0}".format(e)
-
+# close ssh
 ssh_close = ['ssh',
              '-S',
              'gurobi_socket',
