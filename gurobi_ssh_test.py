@@ -8,9 +8,7 @@
 #$ -l mem_free=1G
 #$ -l netapp=1G,scratch=1G
 
-import sys
 import subprocess
-import os
 
 ssh_open = ['ssh',
             '-M',
@@ -25,13 +23,29 @@ ssh_open = ['ssh',
 ssh_open_p = subprocess.Popen(ssh_open)
 ssh_open_p.wait()
 
-gurobi_test = subprocess.Popen(['scl',
-                                'enable',
-                                'python27',
-                                'python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/import_gurobi.py'
-                                ]
-                               )
-gurobi_test.wait()
+try:
+    gurobi_shell = subprocess.Popen(['scl',
+                                     'enable',
+                                     'python27',
+                                     'gurobi.sh'
+                                     ]
+                                    )
+    gurobi_shell.wait()
+
+except Exception as e:
+    print "Shell failed with exception: {0}".format(e)
+
+try:
+    gurobi_python = subprocess.Popen(['scl',
+                                      'enable',
+                                      'python27',
+                                      'python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/import_gurobi.py'
+                                      ]
+                                     )
+    gurobi_python.wait()
+
+except Exception as e:
+    print "Python Import faied with exception {0}".format(e)
 
 ssh_close = ['ssh',
              '-S',
