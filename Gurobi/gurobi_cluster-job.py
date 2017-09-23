@@ -28,6 +28,8 @@ score_table = pd.read_sql_query(
     as score_total from relevant_2b_scores where struct_id={0} group by struct_id, resNum1, resNum2;
     """.format(struct_id), connection)
 
+print score_table
+
 #######################
 # Solve for solutions #
 #######################
