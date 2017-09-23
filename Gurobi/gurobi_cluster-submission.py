@@ -91,9 +91,6 @@ s.close()
 # Start submitting tasks #
 ##########################
 
-bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
-target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
-
 time_start = roundTime()
 print('Starting time:', time_start)
 
