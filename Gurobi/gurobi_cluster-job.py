@@ -39,7 +39,7 @@ residue_interactions = Model("residue_interactions")
 
 # Add MIP binary variables
 MIP_var_list = []
-for index, row in score_table.iterrows():
+for index, row in residue_table.iterrows():
     MIP_var_list.append(residue_interactions.addVar(vtype=GRB.BINARY, name=str(row['resNum'])))
 
 # Set up dict with pairwise scores
