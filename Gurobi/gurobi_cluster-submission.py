@@ -94,14 +94,7 @@ s.close()
 time_start = roundTime()
 print('Starting time:', time_start)
 
-scl_enable = subprocess.Popen(['scl', 'enable', 'python27'], cwd=os.getcwd())
-scl_enable.wait()
-
-arg = ['python',
-       '/netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py',
-       '{0}'.format(sge_task_id + 1)
-       ]
-
+arg = ['scl enable python27 \"python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py {0}\"'.format(sge_task_id + 1)]
 print(' '.join(arg))
 
 outfile_path = os.path.join('stdout', 'gurobi_out-{0}.out'.format(sge_task_id))
