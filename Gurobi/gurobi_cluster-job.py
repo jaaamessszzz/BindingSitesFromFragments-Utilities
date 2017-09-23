@@ -6,7 +6,7 @@ import sys
 #################
 # Set variables #
 #################
-
+print 'Starting Gurobi...'
 struct_id = int(sys.argv[1])
 
 #####################################################

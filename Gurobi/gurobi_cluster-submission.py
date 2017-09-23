@@ -60,12 +60,6 @@ if os.environ.has_key("JOB_ID"):
 print('Job id:', job_id)
 print('Task id:', sge_task_id)
 
-########################
-# Positional arguments #
-########################
-
-target_compound_code = sys.argv[1]
-
 ############################
 # Establish SSH Connection #
 ############################
@@ -106,12 +100,12 @@ print('Starting time:', time_start)
 arg = ['scl',
        'enable',
        'python27',
-       '\"python /netapp/home/james.lucas/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py {0}\"'.format(job_id),
+       '\"python /netapp/home/james.lucas/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py {0}\"'.format(sge_task_id),
        ]
 
 print(' '.join(arg))
 
-outfile_path = os.path.join('stdout', 'gurobi_out-{0}.out'.format(job_id))
+outfile_path = os.path.join('stdout', 'gurobi_out-{0}.out'.format(sge_task_id))
 gurobi_outfile = open(outfile_path, 'w')
 gurobi_process = subprocess.Popen(arg, stdout=gurobi_outfile, cwd=os.getcwd())
 return_code = gurobi_process.wait()
@@ -132,18 +126,6 @@ for line in out.split(os.linesep):
         ram_usage = float(m.group(1))
         ram_usage_type = m.group(2)
         print('Max virtual memory usage: %.1f%s' % (ram_usage, ram_usage_type))
-
-error_out = '{0}.e{1}.{2}'.format(sys.argv[0], str(job_id), str(sge_task_id))
-output_out = '{0}.o{1}.{2}'.format(sys.argv[0], str(job_id), str(sge_task_id))
-
-print(error_out)
-print(output_out)
-
-try:
-    shutil.move(error_out, os.path.join(target_compound_path, 'stdout'))
-    shutil.move(output_out, os.path.join(target_compound_path, 'stdout'))
-except:
-    print('No error or out file!')
 
 #########################
 # Close port forwarding #
