@@ -97,7 +97,7 @@ print('Starting time:', time_start)
 arg = ['scl',
        'enable',
        'python27',
-       '\"python /netapp/home/james.lucas/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py {0}\"'.format(sge_task_id),
+       '\"python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py {0}\"'.format(sge_task_id + 1),
        ]
 
 print(' '.join(arg))
