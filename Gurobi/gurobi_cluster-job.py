@@ -7,7 +7,7 @@ import sys
 # Set variables #
 #################
 print 'Starting Gurobi...'
-struct_id = int(sys.argv[1])
+struct_id = int(sys.argv[1])g
 
 #####################################################
 # Select pairwise scores for structid aka conformer #
@@ -27,8 +27,6 @@ score_table = pd.read_sql_query(
     END 
     as score_total from relevant_2b_scores where struct_id={0} group by struct_id, resNum1, resNum2;
     """.format(struct_id), connection)
-
-print score_table
 
 #######################
 # Solve for solutions #

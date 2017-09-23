@@ -1,7 +1,7 @@
 #!/usr/bin/python
 #$ -S /usr/bin/python
 #$ -cwd
-#$ -pe smp 30
+# -pe smp 30
 #$ -R yes
 #$ -l h_rt=240:00:00
 #$ -t 1
