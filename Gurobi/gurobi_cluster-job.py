@@ -7,7 +7,7 @@ import sys
 # Set variables #
 #################
 print 'Starting Gurobi...'
-struct_id = int(sys.argv[1])g
+struct_id = int(sys.argv[1])
 
 #####################################################
 # Select pairwise scores for structid aka conformer #
