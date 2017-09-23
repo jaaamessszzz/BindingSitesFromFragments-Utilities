@@ -1,0 +1,26 @@
+<ROSETTASCRIPTS>
+    <SCOREFXNS>
+        <ScoreFunction name="sfxn" weights="talaris2014"/>
+    </SCOREFXNS>
+    <RESIDUE_SELECTORS>
+    </RESIDUE_SELECTORS>
+    <TASKOPERATIONS>
+        <PreventResiduesFromRepacking name="static_residues" residues="%%static_positions%%"/>
+    </TASKOPERATIONS>
+    <FILTERS>
+    </FILTERS>
+    <MOVERS>
+        <HBNet name="hbnet_mover" scorefxn="sfxn" hb_threshold="-0.5" min_network_size="5" max_unsat="1" write_network_pdbs="1" task_operations="static_residues" monte_carlo_branch="true" max_mc_nets="100" total_num_mc_runs="1000000"/>
+        <!--<MultiplePoseMover name="MPM_design" max_input_poses="100">-->
+            <!--<ROSETTASCRIPTS>-->
+            <!--</ROSETTASCRIPTS>-->
+        <!--</MultiplePoseMover>-->
+    </MOVERS>
+    <APPLY_TO_POSE>
+    </APPLY_TO_POSE>
+    <PROTOCOLS>
+        <Add mover_name="hbnet_mover"/>
+        <!--<Add mover_name="MPM_design"/>-->
+    </PROTOCOLS>
+    <OUTPUT />
+</ROSETTASCRIPTS>
