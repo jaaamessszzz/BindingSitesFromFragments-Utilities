@@ -1,13 +1,13 @@
 #!/usr/bin/python
 #$ -S /usr/bin/python
 #$ -cwd
-#$ -pe smp 24
+#$ -pe smp 30
 #$ -R yes
 #$ -l h_rt=240:00:00
-#$ -t 1-50
+#$ -t 1
 #$ -l arch=linux-x64
-#$ -l mem_free=10G
-#$ -l netapp=10G,scratch=10G
+#$ -l mem_free=5G
+#$ -l netapp=5G,scratch=5G
 
 import socket
 import sys
@@ -106,7 +106,7 @@ print('Starting time:', time_start)
 arg = ['scl',
        'enable',
        'python27',
-       '\"python /netapp/home/james.lucas/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py {0}\"'.format(job_id + 1),
+       '\"python /netapp/home/james.lucas/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py {0}\"'.format(job_id),
        ]
 
 print(' '.join(arg))
