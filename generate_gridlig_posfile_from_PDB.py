@@ -167,7 +167,7 @@ def main():
     # todo: get rid of the fucking remarks in the output PDB
     prody.writePDB('{}_clean.pdb.gz'.format(args['<input_PDB>'].upper()), cleaned_pdb)
     scaffold_only = cleaned_pdb.select('protein')
-    prody.writePDB('{}.pdb.gz'.format(args['<input_PDB>'].upper()), scaffold_only)
+    prody.writePDB('{}_scaffold.pdb.gz'.format(args['<input_PDB>'].upper()), scaffold_only)
 
     # Generate Posfile
     posfile_list = generate_posfile_info(cleaned_pdb, ligand_code)
@@ -180,7 +180,7 @@ def main():
         gridlig.write('NAME: gridlig\n')
         gridlig.write('BASE: {}\n'.format(' '.join([str(coord) for coord in gridlid_lower_corner])))
         gridlig.write('SIZE: 100 100 100\n')
-        gridlig.write('LENGTH:: 0.1 0.1 0.1')
+        gridlig.write('LENGTH: 0.1 0.1 0.1')
 
 if __name__ == "__main__":
     main()
