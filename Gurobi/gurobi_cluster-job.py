@@ -8,15 +8,19 @@ import pandas as pd
 # Set variables #
 #################
 
+print 'Starting Gurobi...'
+
+# Add environment variables
+os.environ['PATH'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/bin'
+os.environ['LD_LIBRARY_PATH'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/lib'
+
+os.environ['GUROBI_HOME'] = os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64'
+os.environ['GRB_LICENSE_FILE'] = os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/gurobi.lic'
+
 # DEBUGGING
 get_env = subprocess.Popen(['env'])
 get_env.wait()
 
-print 'Starting Gurobi...'
-os.environ['PATH'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/bin'
-os.environ['GUROBI_HOME'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64'
-os.environ['LD_LIBRARY_PATH'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/lib'
-os.environ['GRB_LICENSE_FILE'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/gurobi.lic'
 from gurobipy import *
 
 struct_id = int(sys.argv[1])
