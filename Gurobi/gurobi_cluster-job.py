@@ -2,10 +2,16 @@ from gurobipy import *
 import sqlite3
 import pandas as pd
 import sys
+import subprocess
 
 #################
 # Set variables #
 #################
+
+# DEBUGGING
+get_env = subprocess.Popen(['env'])
+get_env.wait()
+
 print 'Starting Gurobi...'
 struct_id = int(sys.argv[1])
 
@@ -61,7 +67,7 @@ for index, row in score_table.iterrows():
 residue_interactions.Params.PoolSolutions = 10000
 residue_interactions.Params.PoolGap = 0.2
 residue_interactions.Params.PoolSearchMode = 2
-residue_interactions.Params.Threads = 24
+residue_interactions.Params.Threads = 28
 
 # Optimize
 residue_interactions.optimize()
