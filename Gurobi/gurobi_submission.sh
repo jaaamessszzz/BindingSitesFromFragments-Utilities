@@ -1,5 +1,5 @@
-#!/usr/bin/bash
-#$ -S /usr/bin/bash
+#!/bin/bash
+#$ -S /bin/bash
 #$ -cwd
 #$ -pe smp 28
 #$ -R yes
