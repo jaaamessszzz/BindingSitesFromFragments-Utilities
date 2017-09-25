@@ -1,5 +1,6 @@
 import sys
 import os
+import shlex
 import sqlite3
 import subprocess
 import pandas as pd
@@ -11,11 +12,16 @@ import pandas as pd
 print 'Starting Gurobi...'
 
 # Add environment variables
-os.environ['PATH'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/bin'
-os.environ['LD_LIBRARY_PATH'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/lib'
+# os.environ['PATH'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/bin'
+# os.environ['LD_LIBRARY_PATH'] += os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/lib'
+#
+# os.environ['GUROBI_HOME'] = os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64'
+# os.environ['GRB_LICENSE_FILE'] = os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/gurobi.lic'
 
-os.environ['GUROBI_HOME'] = os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64'
-os.environ['GRB_LICENSE_FILE'] = os.pathsep + '/netapp/home/james.lucas/gurobi751/linux64/gurobi.lic'
+subprocess.Popen([shlex.split('export GUROBI_HOME="/netapp/home/james.lucas/gurobi751/linux64"')])
+subprocess.Popen([shlex.split('export PATH="${PATH}:${GUROBI_HOME}/bin"')])
+subprocess.Popen([shlex.split('export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib"')])
+subprocess.Popen([shlex.split('export GRB_LICENSE_FILE="${GUROBI_HOME}/gurobi.lic"')])
 
 # DEBUGGING
 get_env = subprocess.Popen(['env'])
