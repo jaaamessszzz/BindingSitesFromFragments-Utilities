@@ -99,7 +99,7 @@ arg = ['scl',
        'python27',
        'python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-job.py {0}'.format(sge_task_id + 1)]
 
-outfile_path = os.path.join('stdout', 'gurobi_out-{0}.out'.format(sge_task_id))
+outfile_path = os.path.join('stdout', 'gurobi_out-{0}-{1}.out'.format(job_id, sge_task_id))
 gurobi_outfile = open(outfile_path, 'w')
 gurobi_process = subprocess.Popen(arg, stdout=gurobi_outfile, cwd=os.getcwd())
 return_code = gurobi_process.wait()
