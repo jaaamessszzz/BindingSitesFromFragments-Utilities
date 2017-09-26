@@ -85,17 +85,11 @@ s.close()
 time_start = roundTime()
 print('Starting time:', time_start)
 
-
 #################
 # Set variables #
 #################
 
 print 'Starting Gurobi...'
-
-# DEBUGGING
-get_env = subprocess.Popen(['env'])
-get_env.wait()
-
 from gurobipy import *
 
 struct_id = int(sge_task_id + 1)
@@ -172,11 +166,14 @@ for i in range(residue_interactions.SolCount):
     res_index_tuple = [index + 1 for index, value in enumerate(residue_interactions.getVars()) if int(value.Xn) == 1]
     source_pdb_list = [index_mapping.loc[idx, 'source_pdb'] for idx in res_index_tuple if idx != 1]
     print('Residue Indicies: {}'.format(res_index_tuple))
-    print('Obj: {}'.format(residue_interactions.objVal))
-    print('Non-Ideal Obj: {}'.format(residue_interactions.PoolObjVal))
+
+    # Janky method to get values for non-ideal solutions since I can't get Model.PoolObjVal to work...
+    solution_residue_pairs = [a for a in itertools.combinations(res_index_tuple, 2)]
+    non_ideal_solution = quicksum(value for key, value in score_dict.items() if key in solution_residue_pairs)
+    print('Non-Ideal Obj: {}'.format(non_ideal_solution))
 
     results_list.append({'Residue_indicies': res_index_tuple,
-                         'Obj_score': residue_interactions.PoolObjVal})
+                         'Obj_score': non_ideal_solution})
 
 df = pd.DataFrame(results_list)
 df.to_csv('Gurobi_results-{0}.csv'.format(struct_id))
