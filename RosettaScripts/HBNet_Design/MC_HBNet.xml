@@ -1,26 +1,106 @@
 <ROSETTASCRIPTS>
     <SCOREFXNS>
-        <ScoreFunction name="sfxn" weights="talaris2014"/>
+        <ScoreFunction name="sfxn" weights="ref2015"/>
     </SCOREFXNS>
     <RESIDUE_SELECTORS>
+        <!--Indicies for matched motif residues, pass in from command line-->
+        <Index name="motif_residues" resnums="%%motif_residues%%"/>
+        <!--Select Ligand-->
+        <Chain name="ligand" chains="X"/>
+        <!--Select all residues outside the 10A design shell-->
+        <Not name="outside_design_shell">
+            <!--Select residues within 10A of the ligand, ligand is always chain X-->
+            <Neighborhood name="design_shell" selector="ligand" distance="10.00"/>
+        </Not>
+        <!--Select all residues that will not be designed-->
+        <Or name="not_designed" selectors="motif_residues,outside_design_shell"/>
     </RESIDUE_SELECTORS>
     <TASKOPERATIONS>
-        <PreventResiduesFromRepacking name="static_residues" residues="%%static_positions%%"/>
+        <!--Get flags from command line e.g. -ex1 -ex2-->
+        <InitializeFromCommandline name="init"/>
+        <!--Set ligand to no repack or design-->
+        <OperateOnResidueSubset name="fixlig" selector="ligand"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+        <!--Set matched motif residues and all residues outside design shell to no repack or design-->
+        <OperateOnResidueSubset name="no_design_or_pack" selector="not_designed"> <PreventRepackingRLT/> </OperateOnResidueSubset>
     </TASKOPERATIONS>
     <FILTERS>
     </FILTERS>
     <MOVERS>
-        <HBNet name="hbnet_mover" scorefxn="sfxn" hb_threshold="-0.5" min_network_size="5" max_unsat="1" write_network_pdbs="1" task_operations="static_residues" monte_carlo_branch="true" max_mc_nets="100" total_num_mc_runs="1000000"/>
-        <!--<MultiplePoseMover name="MPM_design" max_input_poses="100">-->
-            <!--<ROSETTASCRIPTS>-->
-            <!--</ROSETTASCRIPTS>-->
-        <!--</MultiplePoseMover>-->
+        <HBNet name="hbnet_mover" scorefxn="sfxn" hb_threshold="-0.5" min_network_size="5" max_unsat="1" write_network_pdbs="1"
+               task_operations="no_design_or_pack,fixlig" start_selector="motif_residues" use_only_input_rot_for_start_res="True"
+               monte_carlo_branch="true" max_mc_nets="100" total_num_mc_runs="10000000"/>
+        <MultiplePoseMover name="MPM_design" max_input_poses="50">
+            <ROSETTASCRIPTS>
+                <SCOREFXNS>
+                    <ScoreFunction name="sfxn" weights="ref2015"/>
+                    <ScoreFunction name="sfxn_cst" weights="ref2015_cst"/>
+                </SCOREFXNS>
+                <RESIDUE_SELECTORS>
+                    <!--Select Ligand-->
+                    <Chain name="ligand" chains="X"/>
+                    <!--Select residues built in by HBNet-->
+                    <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
+                    <!--Indicies for matched motif residues, pass in from command line-->
+                    <Index name="motif_residues" resnums="%%motif_residues%%"/>
+                    <!--Select Ligand-->
+                    <Chain name="ligand" chains="X"/>
+                    <!--Select all residues outside the 10A design shell-->
+                    <Not name="outside_design_shell">
+                        <!--Select residues within 10A of the ligand, ligand is always chain X-->
+                        <Neighborhood name="design_shell" selector="ligand" distance="10.00"/>
+                    </Not>
+                    <!--Select all residues that will not be designed-->
+                    <Or name="not_designed" selectors="motif_residues,outside_design_shell"/>
+                </RESIDUE_SELECTORS>
+                <TASKOPERATIONS>
+                    <!--Set HBNet residues to repack only, allows wiggle room within constraint tolerances-->
+                    <OperateOnResidueSubset name="hbnet_task" selector="hbnet_residues">
+                       <RestrictToRepackingRLT/>
+                    </OperateOnResidueSubset>
+                    <!--Set motif residues to repack only-->
+                    <OperateOnResidueSubset name="motif_task" selector="motif_residues">
+                       <RestrictToRepackingRLT/>
+                    </OperateOnResidueSubset>
+                    <!--Set ligand to no repack or design-->
+                    <OperateOnResidueSubset name="fixlig" selector="ligand">
+                        <PreventRepackingRLT/>
+                    </OperateOnResidueSubset>
+                    <!--Go HAM on extra rotamers-->
+                    <ExtraRotamersGeneric name="extra_rots" ex1="True" ex2="True" ex3="True" ex1_sample_level="1" ex2_sample_level="1"
+                                          ex3_sample_level="1" extrachi_cutoff="0"/>
+                    <!--Include current rotamers in packer-->
+                    <IncludeCurrent name="ic" />
+                </TASKOPERATIONS>
+                <FILTERS>
+                    <!--Filter out designs where ligand-protein interaction energy is more than 0-->
+                    <LigInterfaceEnergy name="interfE" scorefxn="standardfxn" energy_cutoff="0.0" confidence="1" />
+                    <!--Filter out designs where % shape complentarity with ligand is less thn 0.75-->
+                    <ShapeComplementarity name="Lig_ShapeC" min_sc="0.75" min_interface="0" verbose="0" quick="0" jump="1" confidence="1"/>
+                </FILTERS>
+                <MOVERS>
+                    <!--Fast Design-->
+                    <FastDesign name="FastDesign" scorefxn="sfxn_cst" clear_designable_residues="False" ramp_down_constraints="False"
+                                repeats="2" task_operations="ic,fixlig,hbnet_task,motif_task,not_designed">
+                    </FastDesign>
+                    <!--Generic MC... It seems like this is just a filtering step without drift=True?-->
+                    <GenericMonteCarlo name="GM_design" mover_name="FastDesign" trials="10" progress_file="MC_progess_design.txt"
+                                       bolz_rank="True" recover_low="True" preapply="False" drift="False" sample_type="low" temperature="0.03">
+                        <Filters>
+                            <AND filter_name="interfE" sample_type="low" temperature="1"/>
+                            <AND filter_name="Lig_ShapeC" sample_type="high" temperature="0.1"/>
+                        </Filters>
+                    </GenericMonteCarlo>
+                </MOVERS>
+                <PROTOCOLS>
+                    <Add mover_name="GM_design"/>
+                </PROTOCOLS>
+            </ROSETTASCRIPTS>
+        </MultiplePoseMover>
     </MOVERS>
     <APPLY_TO_POSE>
     </APPLY_TO_POSE>
     <PROTOCOLS>
         <Add mover_name="hbnet_mover"/>
-        <!--<Add mover_name="MPM_design"/>-->
+        <Add mover_name="MPM_design"/>
     </PROTOCOLS>
-    <OUTPUT />
 </ROSETTASCRIPTS>
