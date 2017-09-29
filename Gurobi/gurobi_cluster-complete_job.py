@@ -107,8 +107,8 @@ score_table = pd.read_sql_query(
     """
     SELECT struct_id, resNum1, resNum2, 
     CASE
-    WHEN round(sum(score_value), 3) >= 0 THEN 1
-    ELSE round(sum(score_value), 3)
+    WHEN round(sum(score_value), 4) >= 0 THEN 1
+    ELSE round(sum(score_value), 4)
     END 
     as score_total from relevant_2b_scores where struct_id={0} group by struct_id, resNum1, resNum2;
     """.format(struct_id), connection)
@@ -140,7 +140,7 @@ residue_interactions.addConstr(quicksum(MIP_var_list) <= 11) # Number of residue
 residue_interactions.addConstr(quicksum(MIP_var_list) >= 7) # Number of residues in a binding motif (includes ligand)
 residue_interactions.addConstr(MIP_var_list[0] == 1)
 for index, row in score_table.iterrows():
-    if row['score_total'] > 0:
+    if row['score_total'] >= 0:
         residue_interactions.addConstr(MIP_var_list[int(row['resNum1'] - 1)] + MIP_var_list[int(row['resNum2'] - 1)] <= 1)
 
 # Set Parameters

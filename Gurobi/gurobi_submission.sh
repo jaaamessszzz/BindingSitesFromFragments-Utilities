@@ -8,5 +8,6 @@
 #$ -l arch=linux-x64
 #$ -l mem_free=5G
 #$ -l netapp=5G,scratch=5G
+#$ -l q=lab.q
 
 scl enable python27 'python /netapp/home/james.lucas/BindingSitesFromFragments/BindingSitesFromFragments-Utilities/Gurobi/gurobi_cluster-complete_job.py'
