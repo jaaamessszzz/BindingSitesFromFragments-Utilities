@@ -129,25 +129,39 @@ for index, row in residue_table.iterrows():
 score_dict = {}
 for index, row in score_table.iterrows():
     score_dict[(row['resNum1'], row['resNum2'])] = row['score_total']
+##########################
+# Set objective function #
+##########################
 
-# Set objective function
 # Get all possible reisude pairs
-residue_pairs = itertools.combinations(MIP_var_list, 2)
 residue_interactions.setObjective(quicksum((MIP_var_list[int(key[0] - 1)] * MIP_var_list[int(key[1] - 1)] * value) for key, value in score_dict.items()), GRB.MINIMIZE)
 
-# Add constraints
-residue_interactions.addConstr(quicksum(MIP_var_list) <= 11) # Number of residues in a binding motif (includes ligand)
-residue_interactions.addConstr(quicksum(MIP_var_list) >= 7) # Number of residues in a binding motif (includes ligand)
+###################
+# Add constraints #
+###################
+
+# Number of residues in a binding motif (includes ligand)
+residue_interactions.addConstr(quicksum(MIP_var_list) == 7)
+
+# Always include ligand (residue 1)
 residue_interactions.addConstr(MIP_var_list[0] == 1)
+
+# Exclude residues where residue-ligand interaction energy is above X
+ligand_residue_scores = score_table.groupby(['resNum1']).get_group(1)
+for index, row in ligand_residue_scores.iterrows():
+    if row['score_total'] >= -0.5:
+        residue_interactions.addConstr(MIP_var_list[int(row['resNum2'] - 1)] == 0)
+
+# Residues cannot be a solution if two-body interaction energy is above X
 for index, row in score_table.iterrows():
-    if row['score_total'] >= 0:
+    if row['score_total'] >= -0.1:
         residue_interactions.addConstr(MIP_var_list[int(row['resNum1'] - 1)] + MIP_var_list[int(row['resNum2'] - 1)] <= 1)
 
 # Set Parameters
 residue_interactions.Params.PoolSolutions = 10000
 residue_interactions.Params.PoolGap = 0.2
 residue_interactions.Params.PoolSearchMode = 2
-residue_interactions.Params.Threads = 28
+residue_interactions.Params.Threads = 24
 
 # Optimize
 residue_interactions.optimize()
@@ -170,7 +184,7 @@ for i in range(residue_interactions.SolCount):
 
     # Janky method to get values for non-ideal solutions since I can't get Model.PoolObjVal to work...
     solution_residue_pairs = [a for a in itertools.combinations(res_index_tuple, 2)]
-    non_ideal_solution = quicksum(value for key, value in score_dict.items() if key in solution_residue_pairs)
+    non_ideal_solution = sum(value for key, value in score_dict.items() if key in solution_residue_pairs)
     print('Non-Ideal Obj: {}'.format(non_ideal_solution))
 
     results_list.append({'Residue_indicies': res_index_tuple,
