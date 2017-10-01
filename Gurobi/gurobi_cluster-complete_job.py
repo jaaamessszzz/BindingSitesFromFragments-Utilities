@@ -102,7 +102,7 @@ struct_id = int(sge_task_id + 1)
 connection = sqlite3.connect('two_body_terms.db')
 cursor = connection.cursor()
 
-residue_table = pd.read_sql_query("SELECT * from residues", connection)
+residue_table = pd.read_sql_query("SELECT * from residues where struct_id = {0}".format(struct_id), connection)
 score_table = pd.read_sql_query(
     """
     SELECT struct_id, resNum1, resNum2, 
@@ -211,7 +211,7 @@ for i in range(residue_interactions.SolCount):
                          'Obj_score': non_ideal_solution})
 
 df = pd.DataFrame(results_list)
-df.to_csv('Gurobi_results-{0}.csv'.format(struct_id))
+df.to_csv('Gurobi_results-{0}-{1}.csv'.format(os.path.basename(os.path.normpath()), struct_id))
 
 #####################
 # END OF GUROBI JOB #
