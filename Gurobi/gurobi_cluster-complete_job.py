@@ -129,7 +129,7 @@ MIP_var_dict[float(1.0)] = residue_interactions.addVar(vtype=GRB.BINARY, name=st
 # Only add residues to Model if ligand-residue interaction energy is less than X
 ligand_residue_scores = score_table.groupby(['struct_id', 'resNum1']).get_group((struct_id, 1))
 for index, row in ligand_residue_scores.iterrows():
-    if row['score_total'] <= -0.5:
+    if row['score_total'] <= -0.75:
         MIP_var_dict[row['resNum2']] = residue_interactions.addVar(vtype=GRB.BINARY, name=str(row['resNum2']))
 
 # List of residue indcies used in Model
@@ -156,13 +156,14 @@ residue_interactions.setObjective(quicksum(two_body_interactions), GRB.MINIMIZE)
 residue_interactions.addConstr(MIP_var_dict[float(1)] == 1)
 
 # Number of residues in a binding motif (includes ligand)
-residue_interactions.addConstr(quicksum(var for var in MIP_var_dict.values()) == 7)
+motif_count = 7
+residue_interactions.addConstr(quicksum(var for var in MIP_var_dict.values()) == motif_count)
 
 # todo: update this to use score_dict
 # Residues cannot be a solution if two-body interaction energy is above X
 current_struct_scores = score_table.groupby(['struct_id']).get_group(struct_id)
 for index, row in current_struct_scores.iterrows():
-    if row['score_total'] >= -0.1 and all([row['resNum1'] in MIP_residx_list, row['resNum2'] in MIP_residx_list]):
+    if row['score_total'] >= 0 and all([row['resNum1'] in MIP_residx_list, row['resNum2'] in MIP_residx_list]):
         residue_interactions.addConstr(MIP_var_dict[int(row['resNum1'])] + MIP_var_dict[int(row['resNum2'])] <= 1)
 
 # Set Parameters
@@ -199,7 +200,7 @@ for i in range(residue_interactions.SolCount):
                          'Obj_score': non_ideal_solution})
 
 df = pd.DataFrame(results_list)
-df.to_csv('Gurobi_results-{0}-{1}.csv'.format(os.path.basename(os.path.normpath()), struct_id))
+df.to_csv('Gurobi_results-{0}-{1}_residue-conformer_{2}.csv'.format(residue_table.loc[residue_table["resNum"] == 1]['name3'][0], motif_count - 1, struct_id))
 
 #####################
 # END OF GUROBI JOB #
