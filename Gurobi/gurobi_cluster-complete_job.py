@@ -129,33 +129,53 @@ for index, row in residue_table.iterrows():
 score_dict = {}
 for index, row in score_table.iterrows():
     score_dict[(row['resNum1'], row['resNum2'])] = row['score_total']
+
 ##########################
 # Set objective function #
 ##########################
 
 # Get all possible reisude pairs
 residue_interactions.setObjective(quicksum((MIP_var_list[int(key[0] - 1)] * MIP_var_list[int(key[1] - 1)] * value) for key, value in score_dict.items()), GRB.MINIMIZE)
+MIP_var_dict = {}
+
+# Add ligand
+MIP_var_dict[float(1.0)] = residue_interactions.addVar(vtype=GRB.BINARY, name=str(1))
+
+# Only add residues to Model if ligand-residue interaction energy is less than X
+ligand_residue_scores = score_table.groupby(['struct_id', 'resNum1']).get_group((struct_id, 1))
+for index, row in ligand_residue_scores.iterrows():
+    if row['score_total'] <= -0.5:
+        MIP_var_dict[row['resNum2']] = residue_interactions.addVar(vtype=GRB.BINARY, name=str(row['resNum2']))
+
+# List of residue indcies used in Model
+MIP_residx_list = list(MIP_var_dict.keys())
+
+# Set up dict with pairwise scores
+score_dict = {}
+for index, row in score_table.iterrows():
+    if all([row['resNum1'] in MIP_residx_list, row['resNum2'] in MIP_residx_list]):
+        score_dict[(row['resNum1'], row['resNum2'])] = row['score_total']
+
+# Set objective function
+two_body_interactions = [MIP_var_dict[key[0]] * MIP_var_dict[key[1]] * value for key, value in score_dict.items()]
+residue_interactions.setObjective(quicksum(two_body_interactions), GRB.MINIMIZE)
 
 ###################
 # Add constraints #
 ###################
 
-# Number of residues in a binding motif (includes ligand)
-residue_interactions.addConstr(quicksum(MIP_var_list) == 7)
-
 # Always include ligand (residue 1)
-residue_interactions.addConstr(MIP_var_list[0] == 1)
+residue_interactions.addConstr(MIP_var_dict[float(1)] == 1)
 
-# Exclude residues where residue-ligand interaction energy is above X
-ligand_residue_scores = score_table.groupby(['resNum1']).get_group(1)
-for index, row in ligand_residue_scores.iterrows():
-    if row['score_total'] >= -0.5:
-        residue_interactions.addConstr(MIP_var_list[int(row['resNum2'] - 1)] == 0)
+# Number of residues in a binding motif (includes ligand)
+residue_interactions.addConstr(quicksum(var for var in MIP_var_dict.values()) == 7)
 
+# todo: update this to use score_dict
 # Residues cannot be a solution if two-body interaction energy is above X
-for index, row in score_table.iterrows():
-    if row['score_total'] >= -0.1:
-        residue_interactions.addConstr(MIP_var_list[int(row['resNum1'] - 1)] + MIP_var_list[int(row['resNum2'] - 1)] <= 1)
+current_struct_scores = score_table.groupby(['struct_id']).get_group(struct_id)
+for index, row in current_struct_scores.iterrows():
+    if row['score_total'] >= -0.1 and all([row['resNum1'] in MIP_residx_list, row['resNum2'] in MIP_residx_list]):
+        residue_interactions.addConstr(MIP_var_dict[int(row['resNum1'])] + MIP_var_dict[int(row['resNum2'])] <= 1)
 
 # Set Parameters
 residue_interactions.Params.PoolSolutions = 10000
@@ -178,7 +198,7 @@ results_list = []
 for i in range(residue_interactions.SolCount):
     residue_interactions.setParam(GRB.Param.SolutionNumber, i)
 
-    res_index_tuple = [index + 1 for index, value in enumerate(residue_interactions.getVars()) if int(value.Xn) == 1]
+    res_index_tuple = [int(float(value.VarName)) for index, value in enumerate(residue_interactions.getVars()) if int(value.Xn) == 1]
     source_pdb_list = [index_mapping.loc[idx, 'source_pdb'] for idx in res_index_tuple if idx != 1]
     print('Residue Indicies: {}'.format(res_index_tuple))
 
