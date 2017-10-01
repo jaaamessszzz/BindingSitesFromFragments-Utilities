@@ -120,22 +120,7 @@ score_table = pd.read_sql_query(
 # Set up model
 residue_interactions = Model("residue_interactions")
 
-# Add MIP binary variables
-MIP_var_list = []
-for index, row in residue_table.iterrows():
-    MIP_var_list.append(residue_interactions.addVar(vtype=GRB.BINARY, name=str(row['resNum'])))
-
-# Set up dict with pairwise scores
-score_dict = {}
-for index, row in score_table.iterrows():
-    score_dict[(row['resNum1'], row['resNum2'])] = row['score_total']
-
-##########################
-# Set objective function #
-##########################
-
-# Get all possible reisude pairs
-residue_interactions.setObjective(quicksum((MIP_var_list[int(key[0] - 1)] * MIP_var_list[int(key[1] - 1)] * value) for key, value in score_dict.items()), GRB.MINIMIZE)
+# Get all possible residue pairs
 MIP_var_dict = {}
 
 # Add ligand
@@ -156,7 +141,10 @@ for index, row in score_table.iterrows():
     if all([row['resNum1'] in MIP_residx_list, row['resNum2'] in MIP_residx_list]):
         score_dict[(row['resNum1'], row['resNum2'])] = row['score_total']
 
-# Set objective function
+
+##########################
+# Set objective function #
+##########################
 two_body_interactions = [MIP_var_dict[key[0]] * MIP_var_dict[key[1]] * value for key, value in score_dict.items()]
 residue_interactions.setObjective(quicksum(two_body_interactions), GRB.MINIMIZE)
 
