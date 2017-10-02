@@ -40,6 +40,7 @@ import pandas as pd
 import numpy as np
 import prody
 import pprint
+import shutil
 from utils import pdb_check
 
 class Filter_Matches:
@@ -297,3 +298,9 @@ if __name__ == '__main__':
 
     pprint.pprint(final_set)
     print(len(final_set))
+
+    # Move matches that pass filters into a new directory
+    filtered_matches_dir = 'Matches-Filtered'
+    os.makedirs(filtered_matches_dir, exist_ok=True)
+    for match in list(final_set):
+        shutil.copy(os.path.join(match_PDB_dir, match), filtered_matches_dir)
