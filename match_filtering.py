@@ -277,8 +277,8 @@ if __name__ == '__main__':
                       'ligand_shell_eleven': False,
                       'interface_CB_contact_percentage': False,
                       'motif_shell_CB': False,
-                      # 'residue_match_score': True,
-                      # 'min_res_per_chain': True
+                      'residue_match_score': True,
+                      'min_res_per_chain': True
                       }
 
     set_list = []
