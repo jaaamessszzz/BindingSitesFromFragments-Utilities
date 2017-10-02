@@ -16,16 +16,26 @@
         <Or name="not_designed" selectors="motif_residues,outside_design_shell"/>
     </RESIDUE_SELECTORS>
     <TASKOPERATIONS>
-        <!--Get flags from command line e.g. -ex1 -ex2-->
+        <!--Get flags from command line: -ex1 -ex2 -use_input_sc -flip_HNQ, -no_optH false -->
         <InitializeFromCommandline name="init"/>
         <!--Set ligand to no repack or design-->
-        <OperateOnResidueSubset name="fixlig" selector="ligand"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="fixlig" selector="ligand">
+            <PreventRepackingRLT/>
+        </OperateOnResidueSubset>
         <!--Set matched motif residues and all residues outside design shell to no repack or design-->
-        <OperateOnResidueSubset name="no_design_or_pack" selector="not_designed"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="no_design_or_pack" selector="not_designed">
+            <PreventRepackingRLT/>
+        </OperateOnResidueSubset>
+        <!--Go HAM on extra rotamers-->
+        <ExtraRotamersGeneric name="extra_rots" ex1="True" ex2="True" ex3="True" ex1_sample_level="1" ex2_sample_level="1"
+                              ex3_sample_level="1" extrachi_cutoff="0"/>
     </TASKOPERATIONS>
     <FILTERS>
     </FILTERS>
     <MOVERS>
+        <!-- Relax inputs with command line inputs -->
+        <FastRelax name="relax_input" scorefxn="sfxn" repeats="5" task_operations="init"
+                   ramp_down_constraints="false" cartesian="false" bondangle="false" bondlength="false"/>
         <HBNet name="hbnet_mover" scorefxn="sfxn" hb_threshold="-0.5" min_network_size="5" max_unsat="1" write_network_pdbs="1"
                task_operations="no_design_or_pack,fixlig" start_selector="motif_residues" use_only_input_rot_for_start_res="True"
                monte_carlo_branch="true" max_mc_nets="100" total_num_mc_runs="10000000"/>
@@ -100,6 +110,7 @@
     <APPLY_TO_POSE>
     </APPLY_TO_POSE>
     <PROTOCOLS>
+        <Add mover_name="relax_input"/>
         <Add mover_name="hbnet_mover"/>
         <Add mover_name="MPM_design"/>
     </PROTOCOLS>

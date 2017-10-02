@@ -7,6 +7,7 @@
 #$ -l arch=linux-x64
 #$ -l mem_free=10G
 #$ -l netapp=10G,scratch=10G
+
 import socket
 import sys
 import subprocess
@@ -44,6 +45,16 @@ def total_seconds(td):
     '''
     return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6
 
+def determine_matched_residue_positions(match_pdb_path):
+    """
+    Parse the filename of the match PDB to determine IDs and positions of match residues
+    :return: 
+    """
+    positions_block = os.path.basename(os.path.normpath(match_pdb_path)).split('_')[2]
+    resnames = [a for a in re.split("[0-9]*", positions_block) if a]
+    resnums = [int(a) for a in re.split("[a-zA-Z]*", positions_block) if a]
+
+    return [(a, b) for a, b in zip(resnames, resnums)]
 
 # SGE_ID and JOD_ID
 sge_task_id=0
@@ -62,97 +73,57 @@ print('Task id:', sge_task_id)
 # Positional arguments #
 ########################
 
-argument_json = sys.argv[1]
+input_pdb = sys.argv[1]
+input_pdb_base = os.path.basename(os.path.normpath(input_pdb))
+params_file_path = sys.argv[2]
 
 ##########################
 # Start submitting tasks #
 ##########################
 
-matcher_arg_json = json.load(open(argument_json, 'r'))
+time_start = roundTime()
+print('Starting time:', time_start)
 
-bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
-target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
+arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgccrelease',
+       '-database',
+       '/netapp/home/james.lucas/Rosetta/main/database',
+       '-s',
+       input_pdb,
+       '-extra_res_fa',
+       params_file_path,
+       '-parser:protocol',
+       'MC_HBNet.xml',
+       '-ex1',
+       '-ex2',
+       '-extrachi_cutoff',
+       '0',
+       '-use_input_sc',
+       '-flip_HNQ',
+       '-no_optH',
+       'false',
+       '-parser:script_vars:',
+       'motif_residues={}'.format(','.join([resnum[1] for resnum in determine_matched_residue_positions(input_pdb_base)]))
+       ]
 
-for block in current_arg_block:
-    time_start = roundTime()
-    print('Starting time:', time_start)
+print(' '.join(arg))
 
-    arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/match.linuxgccrelease',
-           '-database',
-           '/netapp/home/james.lucas/Rosetta/main/database',
-           '-s',
-           block[0],
-           '-match::lig_name',
-           block[1],
-           '-match::grid_boundary',
-           block[2],
-           '-match::scaffold_active_site_residues',
-           block[3],
-           '-match::geometric_constraint_file',
-           block[4],
-           '-extra_res_fa',
-           block[5],
-           '-output_matches_per_group',
-           '1',
-           '-match:consolidate_matches',
-           '-ex1',
-           '-ex2',
-           '-extrachi_cutoff',
-           '0',
-           '-use_input_sc',
-           '-euclid_bin_size',
-           '1', # Roland : 1.5
-           '-euler_bin_size',
-           '10', # Roland: 15
-           '-bump_tolerance',
-           '0.5',
-           '-out::path',
-           block[6],
-           '-match:output_format',
-           'PDB',
-           '-out:file:scorefile', # match scores
-           '-match_grouper',
-           'SameSequenceGrouper', # Two matches belong in the same group if their hits come from the same amino acds at the same scaffold build positions
-           '-mute',
-           'protocols.idealize']
+rosetta_process = subprocess.Popen(arg, cwd=os.getcwd())
+return_code = rosetta_process.wait()
 
-    print(' '.join(arg))
+print('Task return code:', return_code, '\n')
 
-    scaffold = os.path.basename(os.path.normpath(block[0])).split('.')[0]
-    constraint = os.path.basename(os.path.normpath(block[4])).split('.')[0]
+time_end = roundTime()
+print('Ending time:', time_end)
+print("Elapsed time:", time_end-time_start)
 
-    outfile_path = os.path.join(os.path.split(block[6])[0], 'stdout', '{0}-{1}.out'.format(scaffold, constraint))
-    rosetta_outfile = open(outfile_path, 'w')
-    rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
-    return_code = rosetta_process.wait()
+# Calculate RAM usage
+qstat_p = subprocess.Popen(['/usr/local/sge/bin/linux-x64/qstat', '-j', '%d' % job_id], stdout=subprocess.PIPE)
+out, err = qstat_p.communicate()
 
-    print('Task return code:', return_code, '\n')
-
-    time_end = roundTime()
-    print('Ending time:', time_end)
-    print("Elapsed time:", time_end-time_start)
-
-    # Calculate RAM usage
-    qstat_p = subprocess.Popen(['/usr/local/sge/bin/linux-x64/qstat', '-j', '%d' % job_id], stdout=subprocess.PIPE)
-    out, err = qstat_p.communicate()
-
-    for line in out.split(os.linesep):
-        m = re.match('(?:usage\s+%d[:]\s+.*?)(?:maxvmem[=])(\d+[.]\d+)([a-zA-Z]+)(?:.*?)' % sge_task_id, line)
-        if m:
-            ram_usage = float(m.group(1))
-            ram_usage_type = m.group(2)
-            print('Max virtual memory usage: %.1f%s' % (ram_usage, ram_usage_type))
-
-error_out = '{0}.e{1}.{2}'.format(sys.argv[0], str(job_id), str(sge_task_id))
-output_out = '{0}.o{1}.{2}'.format(sys.argv[0], str(job_id), str(sge_task_id))
-
-print(error_out)
-print(output_out)
-
-try:
-    shutil.move(error_out, os.path.join(target_compound_path, 'stdout'))
-    shutil.move(output_out, os.path.join(target_compound_path, 'stdout'))
-except:
-    print('No error or out file!')
-
+for line in out.split(os.linesep):
+    m = re.match('(?:usage\s+%d[:]\s+.*?)(?:maxvmem[=])(\d+[.]\d+)([a-zA-Z]+)(?:.*?)' % sge_task_id, line)
+    if m:
+        ram_usage = float(m.group(1))
+        ram_usage_type = m.group(2)
+        print('Max virtual memory usage: %.1f%s' % (ram_usage, ram_usage_type))
 
