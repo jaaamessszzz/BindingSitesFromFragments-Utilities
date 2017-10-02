@@ -4,7 +4,7 @@
 Filter matches for a given target compound using constraints generated with the BSFF package. 
 
 Usage:
-    match_filtering <ligand> <match_PDB_dir> <match_sc_path> <ideal_binding_site_dir> [--csv=<csv_path>] [--monomer]
+    match_filtering <ligand> <match_PDB_dir> <match_sc_path> <ideal_binding_site_dir> [--monomer] [--csv <csv_path>]
 
 Arguments:     
     <ligand>
@@ -27,7 +27,7 @@ Options:
     -m --monomer
         Filtering monomer matches
         
-    -c --csv=<csv_path>
+    -c --csv
         Import csv at csv_path from previous match set
 
 """
