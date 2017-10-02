@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 """
-Filter matches for a given target compound using constraints generated with the 
-BSFF package. 
+Filter matches for a given target compound using constraints generated with the BSFF package. 
 
 Usage:
-    match_filtering <ligand> <match_PDB_dir> <match_sc_path> <ideal_binding_site_dir> [--monomer] [--csv <csv_path>]
+    match_filtering <ligand> <match_PDB_dir> <match_sc_path> <ideal_binding_site_dir> [--csv=<csv_path>] [--monomer]
 
 Arguments:     
     <ligand>
@@ -28,7 +27,7 @@ Options:
     -m --monomer
         Filtering monomer matches
         
-    -c --csv
+    -c --csv=<csv_path>
         Import csv at csv_path from previous match set
 
 """
@@ -270,15 +269,15 @@ if __name__ == '__main__':
 
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
     df.set_index(['match_name'], inplace=True)
-    percent_cutoff = 0.25
+    percent_cutoff = 0.2
     cut_index = int(len(df) * percent_cutoff)
 
     # Ascending = True or False
     ascending_dict = {'ligand_match_score': True,
-                      # 'ligand_shell_eleven': False,
+                      'ligand_shell_eleven': False,
                       'interface_CB_contact_percentage': False,
                       'motif_shell_CB': False,
-                      'residue_match_score': True,
+                      # 'residue_match_score': True,
                       # 'min_res_per_chain': True
                       }
 
@@ -290,5 +289,11 @@ if __name__ == '__main__':
             # print(column.sort_values(ascending=ascending_dict[index])[:cut_index])
             set_list.append(set(column.sort_values(ascending=ascending_dict[index]).index.tolist()[:cut_index]))
 
-    pprint.pprint(set.intersection(*set_list))
-    print(len(set.intersection(*set_list)))
+    # Get all matches with min_res_per_chain = 0
+    min_res_none_set = set(df.groupby(['min_res_per_chain']).get_group(0).index.tolist())
+
+    initial_set = set.intersection(*set_list)
+    final_set = initial_set - min_res_none_set
+
+    pprint.pprint(final_set)
+    print(len(final_set))
