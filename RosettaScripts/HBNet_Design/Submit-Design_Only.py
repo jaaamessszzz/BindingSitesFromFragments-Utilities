@@ -95,7 +95,7 @@ arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgc
        '-extra_res_fa',
        params_file_path,
        '-parser:protocol',
-       'MC_HBNet.xml',
+       'FastDesign.xml',
        '-ex1',
        '-ex2',
        '-extrachi_cutoff',
