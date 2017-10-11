@@ -3,16 +3,13 @@
 #$ -cwd
 #$ -r yes
 #$ -l h_rt=240:00:00
-#$ -t 1-20000
+#$ -t 1-1000
 #$ -l arch=linux-x64
-#$ -l mem_free=8G
+#$ -l mem_free=10G
 #$ -l netapp=8G,scratch=2G
 
 # *** qsub from compound project directory *** #
 # Make sure you set task number above to be correct!!!
-
-# TEP cst files - 655
-# 100% identity dimer scaffolds - 1624
 
 import socket
 import sys
@@ -93,14 +90,12 @@ for block in current_arg_block:
            block[0],
            '-match::lig_name',
            block[1],
-           '-match::grid_boundary',
-           block[2],
            '-match::scaffold_active_site_residues',
-           block[3],
+           block[2],
            '-match::geometric_constraint_file',
-           block[4],
+           block[3],
            '-extra_res_fa',
-           block[5],
+           block[4],
            '-output_matches_per_group',
            '1',
            '-match:consolidate_matches',
@@ -116,7 +111,7 @@ for block in current_arg_block:
            '-bump_tolerance',
            '0.5',
            '-out::path',
-           block[6],
+           block[5],
            '-match:output_format',
            'PDB',
            '-out:file:scorefile', # match scores
@@ -124,6 +119,10 @@ for block in current_arg_block:
            'SameSequenceGrouper', # Two matches belong in the same group if their hits come from the same amino acds at the same scaffold build positions
            '-mute',
            'protocols.idealize']
+
+    if len(block) == 7:
+        arg.append('-match::grid_boundary')
+        arg.append(block[6])
 
     print(' '.join(arg))
 
