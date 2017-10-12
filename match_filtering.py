@@ -4,7 +4,7 @@
 Filter matches for a given target compound using constraints generated with the BSFF package. 
 
 Usage:
-    match_filtering <ligand> <match_PDB_dir> <match_sc_path> <ideal_binding_site_dir> [--monomer] [--csv <csv_path>]
+    match_filtering <ligand> <match_PDB_dir> <ideal_binding_site_dir> <gurobi_solutions_dir> <match_sc_path> [--monomer] [--csv <csv_path>]
 
 Arguments:     
     <ligand>
@@ -15,7 +15,10 @@ Arguments:
 
     <match_sc_path>
         Path to match_score.sc
-
+    
+    <gurobi_solutions_dir>
+        Path to directory containing csvs with Gurobi solutions and associated motif scores
+    
     <ideal_binding_site_dir>
         Directory containing ideal binding site PDBs as generated using BSFF 
         under Complete_Matcher_Constraints/Binding_Site_PDBs
@@ -41,7 +44,12 @@ import numpy as np
 import prody
 import pprint
 import shutil
-from utils import pdb_check
+from ast import literal_eval
+from utils import pdb_check, minimum_contact_distance
+from pathos.multiprocessing import ProcessingPool as Pool
+
+# todo: filter out PDBs that contains gigantic AF chains
+# todo: add support for iterative filtering, we'll really only care about match_score, ligand_score, binding_motif_energy
 
 class Filter_Matches:
     """
@@ -50,13 +58,10 @@ class Filter_Matches:
     
     Adapted from Roland's biosensor design protocol:
     * CB within shell around ligand (10A)
-    * percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are
-    within 6A° of any ligand atom
+    * percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A° of any ligand atom
     * RMSD to defined motif
-    * match score (i.e. sum of RMSDs between all pairs of ligand placements from individual motif
-    residues)
-    * neighbor bin of motif residues (i.e. number of C" atoms within 8A° of any motif residue C"
-    atom)
+    * match score (i.e. sum of RMSDs between all pairs of ligand placements from individual motif residues)
+    * neighbor bin of motif residues (i.e. number of C" atoms within 8A° of any motif residue C" atom)
     * minimum number of motif residues per chain
     """
 
@@ -66,13 +71,36 @@ class Filter_Matches:
         self.match_PDB_dir = match_PDB_dir
         self.ideal_bs_dir = ideal_bs_dir
         self.ideal_bs_dict = self._import_ideal_binding_sites()
-        self.match_score_dict = {line.split()[0]: float(line.split()[1]) for line in open(match_sc_path) if line.split()[0] != 'match_name'}
+        self.match_score_dict = self.setup_match_score_dict(match_sc_path)
         self.df = self._set_up_dataframe()
+
+    def setup_match_score_dict(self, match_sc_path):
+        """
+        Convert match_scores.sc into a dict with "Match": "score" key value pairs. This method is necessary since all
+        match scores are written to match_scores.sc even if output_matches_per_group == 1
+        :param match_sc_path: path to match_scores.sc
+        :return: 
+        """
+        with open(match_sc_path, 'r') as match_sc_contents:
+            match_score_dict_list = [{line.split()[0]: line.split()[1]} for line in match_sc_contents if line.split()[0] != 'match_name']
+
+        df = pd.DataFrame(match_score_dict_list, columns=['match_name', 'match_score'])
+        match_score_dict = {}
+
+        match_PDBs = [match.split('.')[0] for match in pdb_check(self.match_PDB_dir, base_only=True)]
+
+        for match_name, match_df in df.groupby('match_name'):
+            if match_name in match_PDBs:
+                min_score = match_df.min()
+                match_score_dict[match_name] = min_score
+
+        return match_score_dict
 
     def _import_ideal_binding_sites(self):
         """
-        Import all ideal binding site PDBs whose constraints were used to find
-        successful matches.
+        Import all ideal binding site PDBs whose constraints were used to find successful matches.
+        Key: name of ideal binding motif without .pdb extension
+        Value: prody object of ideal binding motif
         :return: 
         """
         ideal_bs_prody_dict = {os.path.basename(os.path.normpath(binding_site_PDB)).split('.')[0]: prody.parsePDB(binding_site_PDB)
@@ -106,7 +134,7 @@ class Filter_Matches:
         ligand_shell_eleven = len(match_prody.select('name CB within 11 of resname {}'.format(self.ligand)))
         print('Ligand 11A shell CB count: {}'.format(ligand_shell_eleven))
 
-        # todo: UM_1_Y176W276Q170Q177_1_2BH1_TEP_0001_21-22-25-5_1.pdb oesn't have two chains???
+        # todo: UM_1_Y176W276Q170Q177_1_2BH1_TEP_0001_21-22-25-5_1.pdb doesn't have two chains???
         interface_CB_contact_percentage = 0
         motif_shell_CB = 0
 
@@ -139,6 +167,11 @@ class Filter_Matches:
     def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs, match_name):
         """
         RMSD things
+        
+        *IMPORTANT FOR DETERMINING IDEAL-MATCHED RESIDUE PAIRS*
+        Ideal binding motifs and constraint files follow the same residue ordering
+        Match residues in matched PDB names follow same order as constraint file
+        
         :param match_prody: prody of match PDB
         :param ideal_name: name of ideal binding site PDB to be retireved from preloaded dict
         :return: 
@@ -146,6 +179,9 @@ class Filter_Matches:
         ideal_prody = self.ideal_bs_dict[ideal_name]
 
         # Calculate RMSD to ideal binding site  (side chains only, not ligand)
+        # todo: only look at backbone atoms where match residue mediates a backbone contact
+        # necessary to evaluate closest atom-atom contacts for all match residues with ligand???
+        # use util.minimum_contact_distance(return_indices=True)
 
         # Atom orders are all messed up in the matched PDBs, need to manually reorder them before aligning coordsets
         ideal_atom_order = ideal_prody.select('resname {}'.format(self.ligand)).getNames()
@@ -164,11 +200,51 @@ class Filter_Matches:
         # prody.writePDB('match.pdb', match_prody.select('resname {}'.format(self.ligand)))
 
         # Select residues from ideal and get coords
+
         hv = transformed_ideal_prody.getHierView()
-        ideal_residue_prody_list = [res.select('not hydrogen') for res in hv.iterResidues()]
+        backbone_atom_name_list = ['N', 'CA', 'C', 'O', 'OXT']
+
+        # ideal_residue_prody_list = [res.select('not hydrogen') for res in hv.iterResidues()]
+        ideal_residue_prody_list = []
+
+        # make copy of ligand so atom indicies are reset
+        ligand_copy = transformed_ideal_prody.select('resname {} and not hydrogen'.format(self.ligand)).copy()
+
+        for motif_residue in hv.iterResidues():
+            if motif_residue.getResname() != self.ligand:
+
+                # Make copy of residue so atom indicies are reset
+                ideal_motif_copy = motif_residue.select('not hydrogen').copy()
+
+                # Get closest atom-atom contacts
+                # row_index_low == motif_copy && column_index_low == ligand_copy
+                contact_distance, row_index_low, column_index_low = minimum_contact_distance(ideal_motif_copy, ligand_copy, return_indices=True)
+
+                # If backbone contact {C, CA, N, O} then only consider backbone atoms for RMSD calculation
+                motif_contact_atom = ideal_motif_copy.select('index {}'.format(row_index_low))
+                if motif_contact_atom.getNames()[0] in backbone_atom_name_list:
+                    ideal_residue_prody_list.append(ideal_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
+                else:
+                    ideal_residue_prody_list.append(ideal_motif_copy.select('protein'))
 
         # Select residues from match and get coords
-        motif_residue_prody_list = [match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) for res_tuple in motif_residue_IDs]
+
+        # motif_residue_prody_list = [match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) for res_tuple in motif_residue_IDs]
+        motif_residue_prody_list = []
+
+        for res_tuple in motif_residue_IDs:
+            # Make copy of residue so atom indicies are reset
+            match_motif_copy = match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])).copy()
+
+            # Get closest atom-atom contacts
+            # row_index_low == motif_copy && column_index_low == ligand_copy
+            contact_distance, row_index_low, column_index_low = minimum_contact_distance(match_motif_copy, ligand_copy, return_indices=True)
+
+            motif_contact_atom = match_motif_copy.select('index {}'.format(row_index_low))
+            if motif_contact_atom.getNames()[0] in backbone_atom_name_list:
+                motif_residue_prody_list.append(match_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
+            else:
+                motif_residue_prody_list.append(match_motif_copy.select('protein'))
 
         # Calculate match score as defined by ME!
         # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
@@ -206,21 +282,38 @@ if __name__ == '__main__':
 
     else:
         filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer)
-        pprint.pprint(filter.ideal_bs_dict)
-        row_list = []
+        # pprint.pprint(filter.ideal_bs_dict)
+
+        # Consolidate gurobi solutions into a single dataframe for easy lookup
+        # Pirated from motifs.Generate_Constraints
+        gurobi_solutions = pd.DataFrame(columns=['Obj_score', 'Residue_indicies', 'Conformer'])
+
+        for solution_set in os.listdir(args['<gurobi_solutions_dir>']):
+            temp_solution_df = pd.read_csv(os.path.join(args['<gurobi_solutions_dir>'], solution_set), usecols=['Obj_score', 'Residue_indicies', 'Conformer'])
+            gurobi_solutions = gurobi_solutions.append(temp_solution_df, ignore_index=True)
 
         # Calculate stats for each matched PDB
-        for matched_PDB in pdb_check(match_PDB_dir):
+        def evaluate_match(matched_PDB):
+            """
+            Evaluates quality metrics for a given match
+            :param matched_PDB: path to a single matched PDB
+            """
             match_name = os.path.basename(os.path.normpath(matched_PDB))
             print(match_name)
             match_prody = prody.parsePDB(matched_PDB)
 
             # Parse matched_PDB to get ideal binding site name and residues
-            pnc = re.split('_|-|\.', os.path.basename(os.path.normpath(matched_PDB)))
+            match_pdb_name = os.path.basename(os.path.normpath(matched_PDB))
+            pnc = re.split('_|-|\.', match_pdb_name)
+            match_name_underscore_split = match_pdb_name.split('_')
+
+            motif_index_list = [str(a) for a in match_name_underscore_split.split('-')[1:]]
+            motif_index_string = '_'.join(motif_index_list)
 
             # Ideal Binding Site Name
-            ideal_binding_site_name = '{}_{}-{}-{}-{}-{}'.format(pnc[5], pnc[6], pnc[7], pnc[8], pnc[9], pnc[10])
+            ideal_binding_site_name = '{}_{}-1_{}'.format(pnc[5], pnc[6], motif_index_string)
             print(ideal_binding_site_name)
+
             # Motif Residues in Matched PDB
             motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
             motif_residue_IDs = [(res_one_to_three[motif_residue_ID_list[indx]], motif_residue_ID_list[indx + 1]) for indx in range(0, len(motif_residue_ID_list), 2)]
@@ -252,6 +345,14 @@ if __name__ == '__main__':
             print(min_res_per_chain)
             print('\n')
 
+            # Look up binding motif score in gurobi solutions
+            # gurobi_solutions
+
+            current_conformer = '{}_{}'.format(pnc[5], pnc[6])
+            index_list_string = '[1, {}]'.format(', '.join(motif_index_list))
+
+            gurobi_score = gurobi_solutions.loc[(gurobi_solutions['Residue_indicies'] == index_list_string) & (gurobi_solutions['Conformer'] == current_conformer)]
+
             # Aggragate results
             row_dict = {'match_name': match_name,
                         'ligand_shell_eleven': ligand_shell_eleven,
@@ -259,14 +360,22 @@ if __name__ == '__main__':
                         'motif_shell_CB': motif_shell_CB,
                         'residue_match_score': residue_match_score,
                         'ligand_match_score': ligand_match_score,
-                        'min_res_per_chain': min_res_per_chain
+                        'min_res_per_chain': min_res_per_chain,
+                        'gurobi_motif_score': gurobi_score
                         }
-            row_list.append(row_dict)
+
+            return row_dict
+
+        # Multiprocess match evaluation
+        process = Pool()
+        match_metrics_list_of_dicts = process.map(evaluate_match, [pdb for pdb in pdb_check(match_PDB_dir)])
+        process.close()
+        process.join()
 
         # Return passing matcher results
-        df = pd.DataFrame(row_list)
+        df = pd.DataFrame(match_metrics_list_of_dicts)
         df.set_index(['match_name'], inplace=True)
-        df.to_csv('RESULTS.csv')
+        df.to_csv('Match_Filter_Results-{}.csv'.format(args['<ligand>']))
 
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
     df.set_index(['match_name'], inplace=True)
@@ -279,21 +388,29 @@ if __name__ == '__main__':
                       'interface_CB_contact_percentage': False,
                       'motif_shell_CB': False,
                       'residue_match_score': True,
-                      'min_res_per_chain': True
+                      # 'min_res_per_chain': True # Not necessary if iterating to build full binding sites
+                      # 'gurobi_motif_score': True # I don't think we will want to filter based on motif scores...
                       }
 
+    # Dump lists of passing matches for each metric into set_list
     set_list = []
-    pprint.pprint(list(ascending_dict.keys()))
+
+    print('Evaluating matches based on the following criteria:')
+
+    # Return top percentage of each metric as determined by {percent_cutoff}
     for index, column in df.iteritems():
         if index in list(ascending_dict.keys()):
             print(index)
-            # print(column.sort_values(ascending=ascending_dict[index])[:cut_index])
             set_list.append(set(column.sort_values(ascending=ascending_dict[index]).index.tolist()[:cut_index]))
 
+    # Get intersection of matches that are in top percentage for each metric
+    initial_set = set.intersection(*set_list)
+
+    # todo: add option or setting for this filter based on iterative design steps... maybe we don't need this anymore?
     # Get all matches with min_res_per_chain = 0
     min_res_none_set = set(df.groupby(['min_res_per_chain']).get_group(0).index.tolist())
 
-    initial_set = set.intersection(*set_list)
+    # Remove matches from final pool if there are not motif residues shared by both partners
     final_set = initial_set - min_res_none_set
 
     pprint.pprint(final_set)
