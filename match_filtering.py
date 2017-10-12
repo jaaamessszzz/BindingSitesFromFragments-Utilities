@@ -307,7 +307,7 @@ if __name__ == '__main__':
             pnc = re.split('_|-|\.', match_pdb_name)
             match_name_underscore_split = match_pdb_name.split('_')
 
-            motif_index_list = [str(a) for a in match_name_underscore_split.split('-')[1:]]
+            motif_index_list = [str(a) for a in match_name_underscore_split[6].split('-')[1:]]
             motif_index_string = '_'.join(motif_index_list)
 
             # Ideal Binding Site Name
