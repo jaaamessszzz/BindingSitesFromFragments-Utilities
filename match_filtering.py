@@ -152,16 +152,22 @@ class Filter_Matches:
 
         # neighbor bin of motif residues (i.e. number of CB atoms within 8A° of any motif residue CB atom)
         motif_resnums = [res[1] for res in motif_residue_IDs]
-        motif_shell_CB = len(match_prody.select('name CB within 8 of (resnum {} or resnum {} or resnum {} or resnum {})'\
-                                                .format(motif_resnums[0],
-                                                        motif_resnums[1],
-                                                        motif_resnums[2],
-                                                        motif_resnums[3]
-                                                        )
-                                                )
-                             )
 
-        print('Motif chell CB count: {}'.format(motif_shell_CB))
+        # todo: update to accomodate arbitrary number of motif residues
+        neighbor_bin_resnum_set = set()
+
+        # for loop, get all CB within 8 of each motif residue
+        for motif_resnum in motif_resnums:
+
+            # set residue numbers
+            motif_residue_shell_CB = match_prody.select('name CB within 8 of (resnum {})'.format(motif_resnum))
+            motif_residue_shell_resnums = set(motif_residue_shell_CB.getResnums())
+            neighbor_bin_resnum_set.add(motif_residue_shell_resnums)
+
+        # select name CB and resnum [list of residue numbers]
+        motif_shell_CB = len(set(neighbor_bin_resnum_set))
+
+        print('Motif shell CB count: {}'.format(motif_shell_CB))
         return ligand_shell_eleven, interface_CB_contact_percentage, motif_shell_CB
 
     def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs, match_name):
