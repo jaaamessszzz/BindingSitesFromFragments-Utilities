@@ -265,7 +265,7 @@ class Filter_Matches:
         if match_name.split('.')[0] in list(self.match_score_dict.keys()):
             ligand_match_score = self.match_score_dict[match_name.split('.')[0]]
         else:
-            print('*** Ligand match score loopup failed!!! ***')
+            print('*** Ligand match score lookup failed!!! ***')
             ligand_match_score = 9999
 
         return residue_match_score, ligand_match_score
@@ -357,7 +357,9 @@ if __name__ == '__main__':
             index_list_string = '[1, {}]'.format(', '.join(motif_index_list))
 
             gurobi_score_row = gurobi_solutions.loc[(gurobi_solutions['Residue_indicies'] == index_list_string) & (gurobi_solutions['Conformer'] == current_conformer)]
-            gurobi_score = gurobi_score_row['Obj_score']
+            gurobi_score = gurobi_score_row['Obj_score'][0]
+
+            print(gurobi_score)
 
             # Aggragate results
             row_dict = {'match_name': match_name,
@@ -382,6 +384,8 @@ if __name__ == '__main__':
         df = pd.DataFrame(match_metrics_list_of_dicts)
         df.set_index(['match_name'], inplace=True)
         df.to_csv('Match_Filter_Results-{}.csv'.format(args['<ligand>']))
+
+    pprint.pprint(df)
 
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
     df.set_index(['match_name'], inplace=True)
