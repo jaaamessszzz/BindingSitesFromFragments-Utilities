@@ -313,7 +313,7 @@ if __name__ == '__main__':
             pnc = re.split('_|-|\.', match_pdb_name)
             match_name_dash_split = re.split('-|\.', match_pdb_name)
 
-            motif_index_list = match_name_dash_split[1].split('_')[1:1]
+            motif_index_list = match_name_dash_split[1].split('_')[1:-1]
             motif_index_string = '_'.join(motif_index_list)
 
             # Ideal Binding Site Name
@@ -357,7 +357,8 @@ if __name__ == '__main__':
             current_conformer = '{}_{}'.format(pnc[5], pnc[6])
             index_list_string = '[1, {}]'.format(', '.join(motif_index_list))
 
-            gurobi_score = gurobi_solutions.loc[(gurobi_solutions['Residue_indicies'] == index_list_string) & (gurobi_solutions['Conformer'] == current_conformer)]
+            gurobi_score_row = gurobi_solutions.loc[(gurobi_solutions['Residue_indicies'] == index_list_string) & (gurobi_solutions['Conformer'] == current_conformer)]
+            gurobi_score = gurobi_score_row['Obj_score']
 
             # Aggragate results
             row_dict = {'match_name': match_name,
@@ -382,6 +383,8 @@ if __name__ == '__main__':
         df = pd.DataFrame(match_metrics_list_of_dicts)
         df.set_index(['match_name'], inplace=True)
         df.to_csv('Match_Filter_Results-{}.csv'.format(args['<ligand>']))
+
+    pprint.pprint(df)
 
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
     df.set_index(['match_name'], inplace=True)
