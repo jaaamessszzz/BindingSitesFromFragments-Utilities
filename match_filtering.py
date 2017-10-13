@@ -311,14 +311,9 @@ if __name__ == '__main__':
             # Parse matched_PDB to get ideal binding site name and residues
             match_pdb_name = os.path.basename(os.path.normpath(matched_PDB))
             pnc = re.split('_|-|\.', match_pdb_name)
-            match_name_underscore_split = match_pdb_name.split('_')
+            match_name_dash_split = re.split('-|\.', match_pdb_name)
 
-            motif_index_list = match_name_underscore_split[6].split('-')[1:]
-            print(match_name_underscore_split)
-            print(match_name_underscore_split[6])
-            print(match_name_underscore_split[6].split('-'))
-            print(match_name_underscore_split[6].split('-')[1:])
-            print(motif_index_list)
+            motif_index_list = match_name_dash_split[1].split('_')[1:1]
             motif_index_string = '_'.join(motif_index_list)
 
             # Ideal Binding Site Name
