@@ -357,7 +357,7 @@ if __name__ == '__main__':
             index_list_string = '[1, {}]'.format(', '.join(motif_index_list))
 
             gurobi_score_row = gurobi_solutions.loc[(gurobi_solutions['Residue_indicies'] == index_list_string) & (gurobi_solutions['Conformer'] == current_conformer)]
-            gurobi_score = gurobi_score_row['Obj_score'][0]
+            gurobi_score = gurobi_score_row['Obj_score'].iloc[0]
 
             print(gurobi_score)
 
