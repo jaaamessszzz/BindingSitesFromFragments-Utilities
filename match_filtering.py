@@ -92,7 +92,7 @@ class Filter_Matches:
         for match_name, match_df in df.groupby('match_name'):
             if match_name in match_PDBs:
                 min_score = match_df.min()
-                match_score_dict[match_name] = min_score
+                match_score_dict[match_name] = min_score['match_score']
 
         return match_score_dict
 
