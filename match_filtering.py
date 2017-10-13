@@ -268,6 +268,7 @@ class Filter_Matches:
         if match_name.split('.')[0] in list(self.match_score_dict.keys()):
             ligand_match_score = self.match_score_dict[match_name.split('.')[0]]
         else:
+            print('*** Ligand match score loopup failed!!! ***')
             ligand_match_score = 9999
 
         return residue_match_score, ligand_match_score
@@ -291,7 +292,6 @@ if __name__ == '__main__':
 
     else:
         filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer)
-        pprint.pprint(filter.match_score_dict)
 
         # Consolidate gurobi solutions into a single dataframe for easy lookup
         # Pirated from motifs.Generate_Constraints
