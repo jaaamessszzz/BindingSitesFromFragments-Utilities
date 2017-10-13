@@ -313,7 +313,12 @@ if __name__ == '__main__':
             pnc = re.split('_|-|\.', match_pdb_name)
             match_name_underscore_split = match_pdb_name.split('_')
 
-            motif_index_list = [str(a) for a in match_name_underscore_split[6].split('-')[1:]]
+            motif_index_list = match_name_underscore_split[6].split('-')[1:]
+            print(match_name_underscore_split)
+            print(match_name_underscore_split[6])
+            print(match_name_underscore_split[6].split('-'))
+            print(match_name_underscore_split[6].split('-')[1:])
+            print(motif_index_list)
             motif_index_string = '_'.join(motif_index_list)
 
             # Ideal Binding Site Name
@@ -373,7 +378,7 @@ if __name__ == '__main__':
             return row_dict
 
         # Multiprocess match evaluation
-        process = Pool()
+        process = Pool(processes=1)
         match_metrics_list_of_dicts = process.map(evaluate_match, [pdb for pdb in pdb_check(match_PDB_dir)])
         process.close()
         process.join()
