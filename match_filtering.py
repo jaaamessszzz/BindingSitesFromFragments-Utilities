@@ -262,6 +262,9 @@ class Filter_Matches:
 
         # Get ligand match score from matcher_scores.sc
         # todo: sometimes things aren't added to the match_score.sc??
+        print(match_name)
+        print(match_name.split('.')[0])
+        print(self.match_score_dict[match_name.split('.')[0]])
         if match_name.split('.')[0] in list(self.match_score_dict.keys()):
             ligand_match_score = self.match_score_dict[match_name.split('.')[0]]
         else:
@@ -288,7 +291,7 @@ if __name__ == '__main__':
 
     else:
         filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer)
-        # pprint.pprint(filter.ideal_bs_dict)
+        pprint.pprint(filter.match_score_dict)
 
         # Consolidate gurobi solutions into a single dataframe for easy lookup
         # Pirated from motifs.Generate_Constraints
@@ -305,7 +308,6 @@ if __name__ == '__main__':
             :param matched_PDB: path to a single matched PDB
             """
             match_name = os.path.basename(os.path.normpath(matched_PDB))
-            print(match_name)
             match_prody = prody.parsePDB(matched_PDB)
 
             # Parse matched_PDB to get ideal binding site name and residues
@@ -341,6 +343,7 @@ if __name__ == '__main__':
             motif_residue_chain_list = [res.getChids()[0] for res in motif_residues]
 
             # todo: UM_1_D267F289Y271Q279_1_2BH1_TEP_0001-10-18-21-25_1 is empty??
+            # todo: update to accomodate arbitrary number of motif residues
             try:
                 min_res_per_chain = min([motif_residue_chain_list.count(chain) for chain in (set(motif_residue_chain_list) - set('X'))])
                 if min_res_per_chain == 4:
