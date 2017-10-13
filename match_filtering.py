@@ -82,7 +82,7 @@ class Filter_Matches:
         :return: 
         """
         with open(match_sc_path, 'r') as match_sc_contents:
-            match_score_dict_list = [{line.split()[0]: line.split()[1]} for line in match_sc_contents if line.split()[0] != 'match_name']
+            match_score_dict_list = [{'match_name': line.split()[0], 'match_score': float(line.split()[1])} for line in match_sc_contents if line.split()[0] != 'match_name']
 
         df = pd.DataFrame(match_score_dict_list, columns=['match_name', 'match_score'])
         match_score_dict = {}
