@@ -262,9 +262,6 @@ class Filter_Matches:
 
         # Get ligand match score from matcher_scores.sc
         # todo: sometimes things aren't added to the match_score.sc??
-        print(match_name)
-        print(match_name.split('.')[0])
-        print(self.match_score_dict[match_name.split('.')[0]])
         if match_name.split('.')[0] in list(self.match_score_dict.keys()):
             ligand_match_score = self.match_score_dict[match_name.split('.')[0]]
         else:
@@ -320,7 +317,6 @@ if __name__ == '__main__':
 
             # Ideal Binding Site Name
             ideal_binding_site_name = '{}_{}-1_{}'.format(pnc[5], pnc[6], motif_index_string)
-            print(ideal_binding_site_name)
 
             # Motif Residues in Matched PDB
             motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
@@ -386,8 +382,6 @@ if __name__ == '__main__':
         df = pd.DataFrame(match_metrics_list_of_dicts)
         df.set_index(['match_name'], inplace=True)
         df.to_csv('Match_Filter_Results-{}.csv'.format(args['<ligand>']))
-
-    pprint.pprint(df)
 
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
     df.set_index(['match_name'], inplace=True)
