@@ -132,7 +132,7 @@ class Filter_Matches:
         """
         # Calculate number of CB atoms within 11A of ligand
         ligand_shell_eleven = len(match_prody.select('name CB within 11 of resname {}'.format(self.ligand)))
-        print('Ligand 11A shell CB count: {}'.format(ligand_shell_eleven))
+        # print('Ligand 11A shell CB count: {}'.format(ligand_shell_eleven))
 
         # todo: UM_1_Y176W276Q170Q177_1_2BH1_TEP_0001_21-22-25-5_1.pdb doesn't have two chains???
         interface_CB_contact_percentage = 0
@@ -144,11 +144,11 @@ class Filter_Matches:
             interface_cb = match_prody.select('(name CB and chain {}) within 8 of chain {} or\
              (name CB and chain {}) within 8 of chain {}'.format(chains_in_dimer[0], chains_in_dimer[1],
                                                                  chains_in_dimer[1], chains_in_dimer[0]))
-            print(len(interface_cb))
+            # print(len(interface_cb))
 
             ligand_shell_six = match_prody.select('name CB within 6 of resname {}'.format(self.ligand))
             interface_CB_contact_percentage = len(set(ligand_shell_six.getIndices()) & set(interface_cb.getIndices())) / len(interface_cb)
-            print('Interface CB contact percentage: {}'.format(interface_CB_contact_percentage))
+            # print('Interface CB contact percentage: {}'.format(interface_CB_contact_percentage))
 
         # neighbor bin of motif residues (i.e. number of CB atoms within 8A° of any motif residue CB atom)
         motif_resnums = [res[1] for res in motif_residue_IDs]
@@ -167,7 +167,7 @@ class Filter_Matches:
         # select name CB and resnum [list of residue numbers]
         motif_shell_CB = len(set(neighbor_bin_resnum_set))
 
-        print('Motif shell CB count: {}'.format(motif_shell_CB))
+        # print('Motif shell CB count: {}'.format(motif_shell_CB))
         return ligand_shell_eleven, interface_CB_contact_percentage, motif_shell_CB
 
     def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs, match_name):
@@ -185,9 +185,6 @@ class Filter_Matches:
         ideal_prody = self.ideal_bs_dict[ideal_name]
 
         # Calculate RMSD to ideal binding site  (side chains only, not ligand)
-        # todo: only look at backbone atoms where match residue mediates a backbone contact
-        # necessary to evaluate closest atom-atom contacts for all match residues with ligand???
-        # use util.minimum_contact_distance(return_indices=True)
 
         # Atom orders are all messed up in the matched PDBs, need to manually reorder them before aligning coordsets
         ideal_atom_order = ideal_prody.select('resname {}'.format(self.ligand)).getNames()
@@ -199,11 +196,7 @@ class Filter_Matches:
         transformation = prody.calcTransformation(ideal_ligand.getCoords(), match_atom_coords)
         transformed_ideal_prody = prody.applyTransformation(transformation, ideal_prody)
 
-        print('RMSD: {}'.format(prody.calcRMSD(transformed_ideal_prody.select('resname {}'.format(self.ligand)), match_atom_coords)))
-
-        # Debugging
-        # prody.writePDB('ideal.pdb', transformed_ideal_prody)
-        # prody.writePDB('match.pdb', match_prody.select('resname {}'.format(self.ligand)))
+        # print('RMSD: {}'.format(prody.calcRMSD(transformed_ideal_prody.select('resname {}'.format(self.ligand)), match_atom_coords)))
 
         # Select residues from ideal and get coords
 
@@ -256,7 +249,6 @@ class Filter_Matches:
         # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
         try:
             residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
-            print('Match score: {}'.format(residue_match_score))
         except:
             residue_match_score = 9999
 
@@ -265,7 +257,6 @@ class Filter_Matches:
         if match_name.split('.')[0] in list(self.match_score_dict.keys()):
             ligand_match_score = self.match_score_dict[match_name.split('.')[0]]
         else:
-            print('*** Ligand match score lookup failed!!! ***')
             ligand_match_score = 9999
 
         return residue_match_score, ligand_match_score
@@ -347,9 +338,6 @@ if __name__ == '__main__':
             except:
                 min_res_per_chain = -1
 
-            print(min_res_per_chain)
-            print('\n')
-
             # Look up binding motif score in gurobi solutions
             # gurobi_solutions
 
@@ -358,8 +346,6 @@ if __name__ == '__main__':
 
             gurobi_score_row = gurobi_solutions.loc[(gurobi_solutions['Residue_indicies'] == index_list_string) & (gurobi_solutions['Conformer'] == current_conformer)]
             gurobi_score = gurobi_score_row['Obj_score'].iloc[0]
-
-            print(gurobi_score)
 
             # Aggragate results
             row_dict = {'match_name': match_name,
@@ -388,7 +374,8 @@ if __name__ == '__main__':
     pprint.pprint(df)
 
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
-    df.set_index(['match_name'], inplace=True)
+    if args['--csv']:
+        df.set_index(['match_name'], inplace=True)
     percent_cutoff = 0.2
     cut_index = int(len(df) * percent_cutoff)
 
@@ -417,12 +404,15 @@ if __name__ == '__main__':
     initial_set = set.intersection(*set_list)
 
     # todo: add option or setting for this filter based on iterative design steps... maybe we don't need this anymore?
-    # Get all matches with min_res_per_chain = 0
-    min_res_none_set = set(df.groupby(['min_res_per_chain']).get_group(0).index.tolist())
+    # I don't think we need this anymore...
 
-    # Remove matches from final pool if there are not motif residues shared by both partners
-    final_set = initial_set - min_res_none_set
+    # # Get all matches with min_res_per_chain = 0
+    # min_res_none_set = set(df.groupby(['min_res_per_chain']).get_group(0).index.tolist())
+    #
+    # # Remove matches from final pool if there are not motif residues shared by both partners
+    # final_set = initial_set - min_res_none_set
 
+    final_set = initial_set
     pprint.pprint(final_set)
     print(len(final_set))
 
@@ -431,3 +421,7 @@ if __name__ == '__main__':
     os.makedirs(filtered_matches_dir, exist_ok=True)
     for match in list(final_set):
         shutil.copy(os.path.join(match_PDB_dir, match), filtered_matches_dir)
+
+    # Export csv with metrics of final set
+    final_set_df = df.loc[list(final_set)]
+    final_set_df.to_csv(os.path.join(filtered_matches_dir, 'Final_set_metrics.csv'))
