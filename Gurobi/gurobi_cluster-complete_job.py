@@ -94,6 +94,35 @@ from gurobipy import *
 
 struct_id = int(sge_task_id + 1)
 
+#####################################
+# Check for command line arguements #
+#####################################
+
+# Get motif count to solve for from command line
+motif_count = int(sys.argv[1])
+print('Solving for {0} residue binding motifs (including ligand)'.format(motif_count))
+
+# If second argument is passed, it needs to be a text file of previous matches
+# e.g. REN_0025-1_207_294_764_783
+if sys.argv[2]:
+    previous_match_list = [a for a in open(sys.argv[2], 'r')]
+    print(previous_match_list)
+
+    current_match_iteration = previous_match_list[sge_task_id]
+    current_match_total_split = re.split('-|_|', current_match_iteration)
+    current_match_dash_split = re.split('-', current_match_iteration)
+
+    print('Starting match iteration with {0}'.format(current_match_iteration))
+
+    # struct_id is now whatever
+    struct_id = int(current_match_total_split[1])
+    print('struct_id set to {0}'.format(struct_id))
+
+    # Get new residue constraints
+    residue_constraints_string = current_match_dash_split[1]
+    residue_constraints = [int(a) for a in residue_constraints_string.split('_')][1:]
+    print('Adding residue constraints to optimization: {0}'.format(residue_constraints))
+
 #####################################################
 # Select pairwise scores for structid aka conformer #
 #####################################################
@@ -130,7 +159,7 @@ MIP_var_dict[float(1.0)] = residue_interactions.addVar(vtype=GRB.BINARY, name=st
 # Only add residues to Model if ligand-residue interaction energy is less than X
 ligand_residue_scores = score_table.groupby(['struct_id', 'resNum1']).get_group((struct_id, 1))
 for index, row in ligand_residue_scores.iterrows():
-    if row['score_total'] < -0.75:
+    if row['score_total'] < -0.5:
         MIP_var_dict[row['resNum2']] = residue_interactions.addVar(vtype=GRB.BINARY, name=str(row['resNum2']))
 
 # List of residue indcies used in Model
@@ -158,8 +187,12 @@ residue_interactions.setObjective(quicksum(two_body_interactions), GRB.MINIMIZE)
 # Always include ligand (residue 1)
 residue_interactions.addConstr(MIP_var_dict[float(1)] == 1)
 
+# Include residue constraints if sys.argv[2] exists
+if sys.argv[2]:
+    for residue_num in residue_constraints:
+        residue_interactions.addConstr(MIP_var_dict[float(residue_num)] == 1)
+
 # Number of residues in a binding motif (includes ligand)
-motif_count = 7
 residue_interactions.addConstr(quicksum(var for var in MIP_var_dict.values()) == motif_count)
 
 # todo: update this to use score_dict
@@ -212,7 +245,10 @@ for i in range(residue_interactions.SolCount):
                          'Conformer': '{}_{:0>4}'.format(compound_id, struct_id)})
 
 df = pd.DataFrame(results_list)
-df.to_csv('Gurobi_results-{0}-{1}_residue-conformer_{2}.csv'.format(compound_id, residues_in_motif, struct_id))
+if sys.argv[2]:
+    df.to_csv('Gurobi_results-{0}-{1}_residue-conformer_{2}.csv'.format(compound_id, residues_in_motif, current_match_iteration))
+else:
+    df.to_csv('Gurobi_results-{0}-{1}_residue-conformer_{2}.csv'.format(compound_id, residues_in_motif, struct_id))
 
 #####################
 # END OF GUROBI JOB #
