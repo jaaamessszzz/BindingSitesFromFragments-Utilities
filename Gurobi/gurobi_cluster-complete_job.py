@@ -108,7 +108,7 @@ if sys.argv[2]:
     previous_match_list = [a for a in open(sys.argv[2], 'r')]
     print(previous_match_list)
 
-    current_match_iteration = previous_match_list[sge_task_id]
+    current_match_iteration = previous_match_list[sge_task_id].strip()
     current_match_total_split = re.split('-|_|', current_match_iteration)
     current_match_dash_split = re.split('-', current_match_iteration)
 
@@ -240,7 +240,11 @@ for i in range(residue_interactions.SolCount):
     non_ideal_solution = sum(value for key, value in score_dict.items() if key in solution_residue_pairs)
     print('Non-Ideal Obj: {}'.format(non_ideal_solution))
 
-    results_list.append({'Residue_indicies': res_index_tuple,
+    # todo: reorder lists so previous match residue indicies are at the end
+
+    new_residues = sorted(list(set(res_index_tuple) - set(residue_constraints)))
+
+    results_list.append({'Residue_indicies': new_residues + residue_constraints,
                          'Obj_score': non_ideal_solution,
                          'Conformer': '{}_{:0>4}'.format(compound_id, struct_id)})
 
