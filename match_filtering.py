@@ -182,6 +182,8 @@ class Filter_Matches:
         :param ideal_name: name of ideal binding site PDB to be retireved from preloaded dict
         :return: 
         """
+
+
         ideal_prody = self.ideal_bs_dict[ideal_name]
 
         # Calculate RMSD to ideal binding site  (side chains only, not ligand)
@@ -338,8 +340,10 @@ if __name__ == '__main__':
             except:
                 min_res_per_chain = -1
 
+            # Count CB that are within 2A of ligand
+            ligand_CB_clashes = match_prody.select('name CB within 8 of name {}'.format(ligand))
+
             # Look up binding motif score in gurobi solutions
-            # gurobi_solutions
 
             current_conformer = '{}_{}'.format(pnc[5], pnc[6])
             index_list_string = '[1, {}]'.format(', '.join(motif_index_list))
@@ -355,7 +359,8 @@ if __name__ == '__main__':
                         'residue_match_score': residue_match_score,
                         'ligand_match_score': ligand_match_score,
                         'min_res_per_chain': min_res_per_chain,
-                        'gurobi_motif_score': gurobi_score
+                        'gurobi_motif_score': gurobi_score,
+                        'ligand_CB_clashes': ligand_CB_clashes
                         }
 
             return row_dict
