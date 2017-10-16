@@ -251,7 +251,8 @@ class Filter_Matches:
         # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
         try:
             residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
-        except:
+        except Exception as e:
+            print(e)
             residue_match_score = 9999
 
         # Get ligand match score from matcher_scores.sc
@@ -340,8 +341,8 @@ if __name__ == '__main__':
             except:
                 min_res_per_chain = -1
 
-            # Count CB that are within 2A of ligand
-            ligand_CB_clashes = match_prody.select('name CB within 8 of name {}'.format(ligand))
+            # Count CB that are within 2.4A of ligand
+            ligand_CB_clashes = len(match_prody.select('name CB within 2.4 of (name {} and not hydrogen)'.format(ligand)))
 
             # Look up binding motif score in gurobi solutions
 
@@ -366,7 +367,7 @@ if __name__ == '__main__':
             return row_dict
 
         # Multiprocess match evaluation
-        process = Pool(processes=1)
+        process = Pool()
         match_metrics_list_of_dicts = process.map(evaluate_match, [pdb for pdb in pdb_check(match_PDB_dir)])
         process.close()
         process.join()
@@ -385,11 +386,11 @@ if __name__ == '__main__':
     cut_index = int(len(df) * percent_cutoff)
 
     # Ascending = True or False
-    ascending_dict = {'ligand_match_score': True,
-                      'ligand_shell_eleven': False,
+    ascending_dict = {'ligand_shell_eleven': False,
                       'interface_CB_contact_percentage': False,
                       'motif_shell_CB': False,
                       'residue_match_score': True,
+                      # 'ligand_match_score': True,
                       # 'min_res_per_chain': True # Not necessary if iterating to build full binding sites
                       # 'gurobi_motif_score': True # I don't think we will want to filter based on motif scores...
                       }
