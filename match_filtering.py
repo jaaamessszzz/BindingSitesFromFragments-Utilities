@@ -250,7 +250,15 @@ class Filter_Matches:
         # Calculate match score as defined by ME!
         # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
         try:
-            residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
+            # residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
+            for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
+                print(ideal.getResname())
+                print([a for a in ideal])
+                print(match.getResname())
+                print([b for b in match])
+
+                residue_match_score = sum([prody.calcRMSD(ideal, match))
+
         except Exception as e:
             print(e)
             residue_match_score = 9999
@@ -342,7 +350,9 @@ if __name__ == '__main__':
                 min_res_per_chain = -1
 
             # Count CB that are within 2.4A of ligand
-            ligand_CB_clashes = len(match_prody.select('name CB within 2.4 of (name {} and not hydrogen)'.format(ligand)))
+            print(match_prody.select('chain X and not hydrogen'))
+            clashing_CB_atoms = match_prody.select('name CB within 2.4 of (chain X and not hydrogen)')
+            ligand_CB_clashes = len(clashing_CB_atoms) if clashing_CB_atoms is not None else 0
 
             # Look up binding motif score in gurobi solutions
 
@@ -385,6 +395,7 @@ if __name__ == '__main__':
     percent_cutoff = 0.2
     cut_index = int(len(df) * percent_cutoff)
 
+    # Percentage cutoff filters
     # Ascending = True or False
     ascending_dict = {'ligand_shell_eleven': False,
                       'interface_CB_contact_percentage': False,
@@ -394,6 +405,8 @@ if __name__ == '__main__':
                       # 'min_res_per_chain': True # Not necessary if iterating to build full binding sites
                       # 'gurobi_motif_score': True # I don't think we will want to filter based on motif scores...
                       }
+
+    hard_cutoff_dict = {'ligand_CB_clashes': 0}
 
     # Dump lists of passing matches for each metric into set_list
     set_list = []
@@ -405,6 +418,10 @@ if __name__ == '__main__':
         if index in list(ascending_dict.keys()):
             print(index)
             set_list.append(set(column.sort_values(ascending=ascending_dict[index]).index.tolist()[:cut_index]))
+
+    # Hard Cutoff filters
+    # todo: add hard cutoff filters
+
 
     # Get intersection of matches that are in top percentage for each metric
     initial_set = set.intersection(*set_list)
