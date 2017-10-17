@@ -207,6 +207,7 @@ class Filter_Matches:
 
         # ideal_residue_prody_list = [res.select('not hydrogen') for res in hv.iterResidues()]
         ideal_residue_prody_list = []
+        backbone_contact_bool = []
 
         # make copy of ligand so atom indicies are reset
         ligand_copy = transformed_ideal_prody.select('resname {} and not hydrogen'.format(self.ligand)).copy()
@@ -225,24 +226,32 @@ class Filter_Matches:
                 motif_contact_atom = ideal_motif_copy.select('index {}'.format(row_index_low))
                 if motif_contact_atom.getNames()[0] in backbone_atom_name_list:
                     ideal_residue_prody_list.append(ideal_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
+                    backbone_contact_bool.append(True)
                 else:
                     ideal_residue_prody_list.append(ideal_motif_copy.select('protein'))
+                    backbone_contact_bool.append(False)
 
         # Select residues from match and get coords
 
         # motif_residue_prody_list = [match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) for res_tuple in motif_residue_IDs]
         motif_residue_prody_list = []
 
-        for res_tuple in motif_residue_IDs:
+        # CANNOT USE MATCHED MOTIF RESIDUE TO GET CONTACTS, MATCHED MOTIF CAN BE ALL FUCKED UP
+        for res_tuple, bb_contact in zip(motif_residue_IDs, backbone_contact_bool):
             # Make copy of residue so atom indicies are reset
             match_motif_copy = match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])).copy()
 
-            # Get closest atom-atom contacts
-            # row_index_low == motif_copy && column_index_low == ligand_copy
-            contact_distance, row_index_low, column_index_low = minimum_contact_distance(match_motif_copy, ligand_copy, return_indices=True)
+            # # Get closest atom-atom contacts
+            # # row_index_low == motif_copy && column_index_low == ligand_copy
+            # contact_distance, row_index_low, column_index_low = minimum_contact_distance(match_motif_copy, ligand_copy, return_indices=True)
+            #
+            # motif_contact_atom = match_motif_copy.select('index {}'.format(row_index_low))
+            # if motif_contact_atom.getNames()[0] in backbone_atom_name_list:
+            #     motif_residue_prody_list.append(match_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
+            # else:
+            #     motif_residue_prody_list.append(match_motif_copy.select('protein'))
 
-            motif_contact_atom = match_motif_copy.select('index {}'.format(row_index_low))
-            if motif_contact_atom.getNames()[0] in backbone_atom_name_list:
+            if bb_contact:
                 motif_residue_prody_list.append(match_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
             else:
                 motif_residue_prody_list.append(match_motif_copy.select('protein'))
@@ -251,13 +260,14 @@ class Filter_Matches:
         # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
         try:
             # residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
+            residue_match_score = 0
             for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
                 print(ideal.getResname())
                 print([a for a in ideal])
                 print(match.getResname())
                 print([b for b in match])
 
-                residue_match_score = sum([prody.calcRMSD(ideal, match))
+                residue_match_score += prody.calcRMSD(ideal, match)
 
         except Exception as e:
             print(e)
