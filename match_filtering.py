@@ -262,15 +262,11 @@ class Filter_Matches:
             # residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
             residue_match_score = 0
             for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
-                print(ideal.getResname())
-                print([a for a in ideal])
-                print(match.getResname())
-                print([b for b in match])
-
+                print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
                 residue_match_score += prody.calcRMSD(ideal, match)
 
         except Exception as e:
-            print(e)
+            print('\n\n{}\n\n'.format(e))
             residue_match_score = 9999
 
         # Get ligand match score from matcher_scores.sc
