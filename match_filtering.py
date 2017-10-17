@@ -242,15 +242,6 @@ class Filter_Matches:
             match_motif_copy = match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])).copy()
 
             # # Get closest atom-atom contacts
-            # # row_index_low == motif_copy && column_index_low == ligand_copy
-            # contact_distance, row_index_low, column_index_low = minimum_contact_distance(match_motif_copy, ligand_copy, return_indices=True)
-            #
-            # motif_contact_atom = match_motif_copy.select('index {}'.format(row_index_low))
-            # if motif_contact_atom.getNames()[0] in backbone_atom_name_list:
-            #     motif_residue_prody_list.append(match_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
-            # else:
-            #     motif_residue_prody_list.append(match_motif_copy.select('protein'))
-
             if bb_contact:
                 motif_residue_prody_list.append(match_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
             else:
@@ -356,12 +347,11 @@ if __name__ == '__main__':
                 min_res_per_chain = -1
 
             # Count CB that are within 2.4A of ligand
-            print(match_prody.select('chain X and not hydrogen'))
-            clashing_CB_atoms = match_prody.select('name CB within 2.4 of (chain X and not hydrogen)')
+            print(match_prody.select('name CB within 2.4 of (resname {} and not hydrogen)'.format(ligand)))
+            clashing_CB_atoms = match_prody.select('name CB within 2.4 of (resname {} and not hydrogen)'.format(ligand))
             ligand_CB_clashes = len(clashing_CB_atoms) if clashing_CB_atoms is not None else 0
 
             # Look up binding motif score in gurobi solutions
-
             current_conformer = '{}_{}'.format(pnc[5], pnc[6])
             index_list_string = '[1, {}]'.format(', '.join(motif_index_list))
 
@@ -420,14 +410,15 @@ if __name__ == '__main__':
     print('Evaluating matches based on the following criteria:')
 
     # Return top percentage of each metric as determined by {percent_cutoff}
+    # Hard Cutoff filters as determined by {hard_cutoff_dict}
     for index, column in df.iteritems():
         if index in list(ascending_dict.keys()):
             print(index)
             set_list.append(set(column.sort_values(ascending=ascending_dict[index]).index.tolist()[:cut_index]))
-
-    # Hard Cutoff filters
-    # todo: add hard cutoff filters
-
+        elif index in list(hard_cutoff_dict.keys()):
+            print(index)
+            print(set(column.loc[column[index] <= hard_cutoff_dict[index]].index.tolist()))
+            set_list.append(set(column.loc[column[index] <= hard_cutoff_dict[index]].index.tolist()))
 
     # Get intersection of matches that are in top percentage for each metric
     initial_set = set.intersection(*set_list)
