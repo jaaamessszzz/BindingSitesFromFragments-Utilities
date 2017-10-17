@@ -347,7 +347,6 @@ if __name__ == '__main__':
                 min_res_per_chain = -1
 
             # Count CB that are within 2.4A of ligand
-            print(match_prody.select('name CB within 2.4 of chain X'))
             clashing_CB_atoms = match_prody.select('name CB within 2.4 of chain X')
             ligand_CB_clashes = len(clashing_CB_atoms) if clashing_CB_atoms is not None else 0
 
@@ -383,12 +382,10 @@ if __name__ == '__main__':
         df.set_index(['match_name'], inplace=True)
         df.to_csv('Match_Filter_Results-{}.csv'.format(args['<ligand>']))
 
-    pprint.pprint(df)
-
     # Let's say take top 5% of hits, for each metric, passing matcher results have to be in all top 5%
     if args['--csv']:
         df.set_index(['match_name'], inplace=True)
-    percent_cutoff = 0.2
+    percent_cutoff = 0.25
     cut_index = int(len(df) * percent_cutoff)
 
     # Percentage cutoff filters
@@ -404,7 +401,7 @@ if __name__ == '__main__':
 
     # Hard Cutoff filters
     # Accept anything up to value for each key
-    hard_cutoff_dict = {'ligand_CB_clashes': 0}
+    hard_cutoff_dict = {'ligand_CB_clashes': 1}
 
     # Dump lists of passing matches for each metric into set_list
     set_list = []
