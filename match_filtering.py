@@ -347,8 +347,8 @@ if __name__ == '__main__':
                 min_res_per_chain = -1
 
             # Count CB that are within 2.4A of ligand
-            print(match_prody.select('name CB within 2.4 of (resname {} and not hydrogen)'.format(ligand)))
-            clashing_CB_atoms = match_prody.select('name CB within 2.4 of (resname {} and not hydrogen)'.format(ligand))
+            print(match_prody.select('name CB within 2.4 of chain X'))
+            clashing_CB_atoms = match_prody.select('name CB within 2.4 of chain X')
             ligand_CB_clashes = len(clashing_CB_atoms) if clashing_CB_atoms is not None else 0
 
             # Look up binding motif score in gurobi solutions
@@ -396,12 +396,14 @@ if __name__ == '__main__':
     ascending_dict = {'ligand_shell_eleven': False,
                       'interface_CB_contact_percentage': False,
                       'motif_shell_CB': False,
-                      'residue_match_score': True,
+                      # 'residue_match_score': True,
                       # 'ligand_match_score': True,
                       # 'min_res_per_chain': True # Not necessary if iterating to build full binding sites
                       # 'gurobi_motif_score': True # I don't think we will want to filter based on motif scores...
                       }
 
+    # Hard Cutoff filters
+    # Accept anything up to value for each key
     hard_cutoff_dict = {'ligand_CB_clashes': 0}
 
     # Dump lists of passing matches for each metric into set_list
@@ -417,8 +419,7 @@ if __name__ == '__main__':
             set_list.append(set(column.sort_values(ascending=ascending_dict[index]).index.tolist()[:cut_index]))
         elif index in list(hard_cutoff_dict.keys()):
             print(index)
-            print(set(column.loc[column[index] <= hard_cutoff_dict[index]].index.tolist()))
-            set_list.append(set(column.loc[column[index] <= hard_cutoff_dict[index]].index.tolist()))
+            set_list.append(set(column.loc[column <= hard_cutoff_dict[index]].index.tolist()))
 
     # Get intersection of matches that are in top percentage for each metric
     initial_set = set.intersection(*set_list)
