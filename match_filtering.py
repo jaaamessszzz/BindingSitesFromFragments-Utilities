@@ -81,8 +81,13 @@ class Filter_Matches:
         :param match_sc_path: path to match_scores.sc
         :return: 
         """
+        match_score_dict_list = []
         with open(match_sc_path, 'r') as match_sc_contents:
-            match_score_dict_list = [{'match_name': line.split()[0], 'match_score': float(line.split()[1])} for line in match_sc_contents if line.split()[0] != 'match_name']
+            for line in match_sc_contents:
+                if line.strip() not in [None, '', '\n']:
+                    print('line:', line)
+                    if line.split()[0].startswith('UM_'):
+                        match_score_dict_list.append({'match_name': line.split()[0], 'match_score': float(line.split()[1])})
 
         df = pd.DataFrame(match_score_dict_list, columns=['match_name', 'match_score'])
         match_score_dict = {}
