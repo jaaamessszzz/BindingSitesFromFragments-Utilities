@@ -4,7 +4,7 @@
 Filter matches for a given target compound using constraints generated with the BSFF package. 
 
 Usage:
-    match_filtering <ligand> <match_PDB_dir> <ideal_binding_site_dir> <gurobi_solutions_dir> <match_sc_path> [--monomer] [--csv <csv_path>]
+    match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> <match_sc_path> (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>]
 
 Arguments:     
     <ligand>
@@ -22,6 +22,10 @@ Arguments:
     <ideal_binding_site_dir>
         Directory containing ideal binding site PDBs as generated using BSFF 
         under Complete_Matcher_Constraints/Binding_Site_PDBs
+        
+    fuzzballs <fuzzball_dir>
+        If ideal binding site PDBs were not previously generated (e.g. iterations), they will be generated.
+        However, you will need to provide all the fuzzballs.
         
     <csv_path>
         Path to previously calculated match metrics
@@ -206,7 +210,6 @@ class Filter_Matches:
         # print('RMSD: {}'.format(prody.calcRMSD(transformed_ideal_prody.select('resname {}'.format(self.ligand)), match_atom_coords)))
 
         # Select residues from ideal and get coords
-
         hv = transformed_ideal_prody.getHierView()
         backbone_atom_name_list = ['N', 'CA', 'C', 'O', 'OXT']
 
@@ -254,6 +257,11 @@ class Filter_Matches:
 
         # Calculate match score as defined by ME!
         # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
+
+        # Debugging
+        for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
+            print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
+
         try:
             # residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
             residue_match_score = 0
@@ -292,6 +300,55 @@ if __name__ == '__main__':
         df = pd.read_csv(args['<csv_path>'])
 
     else:
+        # Generate ideal binding sites if ideal_bs_dir == False
+        # Dump into ``ideal_bs_dir``
+        if not ideal_bs_dir:
+            ideal_bs_dir = 'Motif_PDBs'
+            os.makedirs(ideal_bs_dir, exist_ok=True)
+            conformer_set = set()
+
+            for pdb in pdb_check(match_PDB_dir, base_only=True):
+            # Parse for constraint file name, add to set
+                pdb_split = re.split('_|-|\.', pdb)
+                ligand_name = pdb_split[5]
+                conformer_id = pdb_split[6]
+                conformer_name = '{}_{}'.format(ligand_name, conformer_id)
+                conformer_set.add(conformer_name)
+
+            # Load all fuzzballs into dict
+            fuzzball_dict = {}
+            for fuzzball in pdb_check(args['<fuzzball_dir>']):
+                current_conformer_fuzzball = os.path.basename(os.path.normpath(fuzzball)).split('-')[0]
+                if current_conformer_fuzzball in conformer_set:
+                    fuzzball_dict[current_conformer_fuzzball] = prody.parsePDB(fuzzball)
+
+            # Generate Motif PDBs
+            for pdb in pdb_check(match_PDB_dir, base_only=True):
+
+                # Parse filename to get fuzzball resnums (splices remove prefix and suffix 1)
+                pdb_split = re.split('_|-|\.', pdb)
+                constraint_resnum_block = re.split('-|\.', pdb)[1][:-2]
+                constraint_resnums = [int(a) for a in constraint_resnum_block.split('_') if a != ''][1:]
+
+                # DEBUGGING
+                print(constraint_resnum_block)
+
+                ligand_name = pdb_split[5]
+                conformer_id = pdb_split[6]
+                conformer_name = '{}_{}'.format(ligand_name, conformer_id)
+
+                current_fuzzball = fuzzball_dict[conformer_name]
+
+                # Start binding motif with ligand
+                current_binding_motif = current_fuzzball.select('resnum 1')
+
+                # Add remaining residues
+                for resnum in constraint_resnums:
+                    current_binding_motif = current_binding_motif + current_fuzzball.select('resnum {}'.format(resnum))
+
+                motif_pdb_filename = '{}-{}.pdb'.format(conformer_name, '1_' + '_'.join([str(a) for a in constraint_resnums]))
+                prody.writePDB(os.path.join(ideal_bs_dir, motif_pdb_filename), current_binding_motif)
+
         filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer)
 
         # Consolidate gurobi solutions into a single dataframe for easy lookup

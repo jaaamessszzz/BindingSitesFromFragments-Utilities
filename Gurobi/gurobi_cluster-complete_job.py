@@ -105,23 +105,33 @@ print('Solving for {0} residue binding motifs (including ligand)'.format(motif_c
 # If second argument is passed, it needs to be a text file of previous matches
 # e.g. REN_0025-1_207_294_764_783
 if sys.argv[2]:
-    previous_match_list = [a for a in open(sys.argv[2], 'r')]
-    print(previous_match_list)
 
-    current_match_iteration = previous_match_list[sge_task_id].strip()
-    current_match_total_split = re.split('-|_|', current_match_iteration)
-    current_match_dash_split = re.split('-', current_match_iteration)
+    # Use residues from previous solutions in next iteration of solutions
+    if sys.argv[2] == 'include':
+        previous_match_list = [a for a in open(sys.argv[3], 'r')]
+        print(previous_match_list)
 
-    print('Starting match iteration with {0}'.format(current_match_iteration))
+        current_match_iteration = previous_match_list[sge_task_id].strip()
+        current_match_total_split = re.split('-|_|', current_match_iteration)
+        current_match_dash_split = re.split('-', current_match_iteration)
 
-    # struct_id is now whatever
-    struct_id = int(current_match_total_split[1])
-    print('struct_id set to {0}'.format(struct_id))
+        print('Starting match iteration with {0}'.format(current_match_iteration))
 
-    # Get new residue constraints
-    residue_constraints_string = current_match_dash_split[1]
-    residue_constraints = [int(a) for a in residue_constraints_string.split('_')][1:]
-    print('Adding residue constraints to optimization: {0}'.format(residue_constraints))
+        # struct_id is now whatever
+        struct_id = int(current_match_total_split[1])
+        print('struct_id set to {0}'.format(struct_id))
+
+        # Get new residue constraints
+        residue_constraints_string = current_match_dash_split[1]
+        residue_constraints = [int(a) for a in residue_constraints_string.split('_')][1:]
+        print('Adding residue constraints to optimization: {0}'.format(residue_constraints))
+
+    # Only use a subset of residues from fuzzball to solve for solutions
+    elif sys.argv[2] == 'exclude':
+        print('Only using a subset of fuzzball residues to generate solutions')
+        include_position_resnumes = [int(a) for a in open(sys.argv[3], 'r')]
+
+        print('Using resnums: {0}'.format(include_position_resnumes))
 
 #####################################################
 # Select pairwise scores for structid aka conformer #
@@ -173,7 +183,6 @@ for index, row in score_table.iterrows():
     if all([row['resNum1'] in MIP_residx_list, row['resNum2'] in MIP_residx_list]):
         score_dict[(row['resNum1'], row['resNum2'])] = row['score_total']
 
-
 ##########################
 # Set objective function #
 ##########################
@@ -188,9 +197,15 @@ residue_interactions.setObjective(quicksum(two_body_interactions), GRB.MINIMIZE)
 residue_interactions.addConstr(MIP_var_dict[float(1)] == 1)
 
 # Include residue constraints if sys.argv[2] exists
-if sys.argv[2]:
+if sys.argv[2] and sys.argv[2] == 'include':
     for residue_num in residue_constraints:
         residue_interactions.addConstr(MIP_var_dict[float(residue_num)] == 1)
+
+# Exclude residues not specified in posfile if posfile is provided
+if sys.argv[2] and sys.argv[2] == 'exclude':
+    for resnum in MIP_residx_list:
+        if resnum not in include_position_resnumes:
+            residue_interactions.addConstr(MIP_var_dict[float(residue_num)] == 0)
 
 # Number of residues in a binding motif (includes ligand)
 residue_interactions.addConstr(quicksum(var for var in MIP_var_dict.values()) == motif_count)
@@ -249,7 +264,7 @@ for i in range(residue_interactions.SolCount):
                          'Conformer': '{}_{:0>4}'.format(compound_id, struct_id)})
 
 df = pd.DataFrame(results_list)
-if sys.argv[2]:
+if sys.argv[2] and sys.argv[2] == 'include':
     df.to_csv('Gurobi_results-{0}-{1}_residue-conformer_{2}.csv'.format(compound_id, residues_in_motif, current_match_iteration))
 else:
     df.to_csv('Gurobi_results-{0}-{1}_residue-conformer_{2}.csv'.format(compound_id, residues_in_motif, struct_id))
