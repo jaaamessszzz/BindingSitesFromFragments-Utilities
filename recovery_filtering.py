@@ -18,6 +18,7 @@ Arguments:
 """
 import os
 import re
+import shutil
 
 import docopt
 import numpy as np
@@ -142,6 +143,14 @@ if __name__ == '__main__':
     df = pd.DataFrame(match_metrics_list_of_dicts)
     df.set_index(['match_name'], inplace=True)
     df.to_csv('Recovery_Filter_Results-{}-{}.csv'.format(args['<ligand_ID>'], os.path.basename(os.path.normpath(args['<clean_pdb>']))[:4]))
+
+    # Move matches that pass filters into a new directory
+    filtered_matches_dir = 'Recovered-Binding-Sites'
+    os.makedirs(filtered_matches_dir, exist_ok=True)
+
+    for index, row in df.iterrows():
+        if row['match_rmsd'] <= 1 and row['fraction_correct'] == 1:
+            shutil.copy(os.path.join(args['<matched_pdb_path>'], index), filtered_matches_dir)
 
 
 
