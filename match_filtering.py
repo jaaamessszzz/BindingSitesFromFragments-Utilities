@@ -190,8 +190,8 @@ class Filter_Matches:
             # set residue numbers
             motif_residue_shell_CB = match_prody.select('name CB within 8 of (resnum {})'.format(motif_resnum))
             resnum_list = motif_residue_shell_CB.getResnums()
-            if resnum_list not None:
-                motif_residue_shell_resnums = set(motif_residue_shell_CB.getResnums(resnum_list))
+            if resnum_list is not None:
+                motif_residue_shell_resnums = set(resnum_list)
                 neighbor_bin_resnum_set = neighbor_bin_resnum_set | motif_residue_shell_resnums
 
         # select name CB and resnum [list of residue numbers]
@@ -403,7 +403,7 @@ if __name__ == '__main__':
             if not match_prody:
                 return row_dict
 
-            if any([match_prody.select('name CB within 11 of resname {}'.format(ligand)) == None, match_prody.select('protein') ==None]):
+            if any([match_prody.select('name CB within 11 of resname {}'.format(ligand)) == None, match_prody.select('protein') == None, len(match_prody.select('protein')) < 100]):
                 return row_dict
 
             # Parse matched_PDB to get ideal binding site name and residues
