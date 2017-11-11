@@ -96,9 +96,11 @@ class Filter_Matches:
             match_PDBs = []
 
             for task_id_dir in directory_check(match_PDB_dir):
-                if os.path.basename(os.path.normpath(task_id_dir)) not in ['cst_files', 'stdout', 'matches']:
+                if os.path.basename(os.path.normpath(task_id_dir)) not in ['cst_files', 'stdout', 'matches'] and 'matcher_score.sc' in os.listdir(task_id_dir):
                     with open(os.path.join(task_id_dir, 'matcher_score.sc'), 'r') as match_sc_contents:
                         match_score_dict_list.append({'match_name': line.split()[0], 'match_score': float(line.split()[1])} for line in match_sc_contents if line.startswith('UM'))
+                else:
+                    continue
 
                 for match_pdb in pdb_check(task_id_dir, base_only=True):
                     match_PDBs.append(match_pdb.split('.')[0])
