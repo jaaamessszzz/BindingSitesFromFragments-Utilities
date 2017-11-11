@@ -403,7 +403,10 @@ if __name__ == '__main__':
             if not match_prody:
                 return row_dict
 
-            if any([match_prody.select('name CB within 11 of resname {}'.format(ligand)) == None, match_prody.select('protein') == None, len(match_prody.select('protein')) < 100]):
+            if any([match_prody.select('name CB within 11 of resname {}'.format(ligand)) == None, match_prody.select('protein') == None]):
+                return row_dict
+
+            if len(match_prody.select('protein')) < 100:
                 return row_dict
 
             # Parse matched_PDB to get ideal binding site name and residues
