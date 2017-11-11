@@ -4,7 +4,7 @@
 Filter matches for a given target compound using constraints generated with the BSFF package. 
 
 Usage:
-    match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> <match_sc_path> (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>]
+    match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> (<match_sc_path> | consolidate) (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>]
 
 Arguments:     
     <ligand>
@@ -15,6 +15,9 @@ Arguments:
 
     <match_sc_path>
         Path to match_score.sc
+
+    consolidate
+        Consolidate matcher_score.sc and PDBs if match jobs were run in subdirectories
     
     <gurobi_solutions_dir>
         Path to directory containing csvs with Gurobi solutions and associated motif scores
@@ -49,7 +52,7 @@ import prody
 import pprint
 import shutil
 from ast import literal_eval
-from utils import pdb_check, minimum_contact_distance
+from utils import pdb_check, minimum_contact_distance, directory_check
 from pathos.multiprocessing import ProcessingPool as Pool
 
 # todo: filter out PDBs that contains gigantic AF chains
@@ -69,9 +72,10 @@ class Filter_Matches:
     * minimum number of motif residues per chain
     """
 
-    def __init__(self, ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=False):
+    def __init__(self, ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=False, consolidate=False):
         self.ligand = ligand
         self.monomer = monomer
+        self.consolidate = consolidate
         self.match_PDB_dir = match_PDB_dir
         self.ideal_bs_dir = ideal_bs_dir
         self.ideal_bs_dict = self._import_ideal_binding_sites()
@@ -85,13 +89,30 @@ class Filter_Matches:
         :param match_sc_path: path to match_scores.sc
         :return: 
         """
-        with open(match_sc_path, 'r') as match_sc_contents:
-            match_score_dict_list = [{'match_name': line.split()[0], 'match_score': float(line.split()[1])} for line in match_sc_contents if line.startswith('UM')]
-
-        df = pd.DataFrame(match_score_dict_list, columns=['match_name', 'match_score'])
+        match_score_dict_list = []
         match_score_dict = {}
 
-        match_PDBs = [match.split('.')[0] for match in pdb_check(self.match_PDB_dir, base_only=True)]
+        if consolidate:
+            match_PDBs = []
+
+            for task_id_dir in directory_check(match_PDB_dir):
+                if os.path.basename(os.path.normpath(task_id_dir)) not in ['cst_files', 'stdout', 'matches']:
+                    with open(os.path.join(task_id_dir, 'matcher_score.sc'), 'r') as match_sc_contents:
+                        match_score_dict_list.append({'match_name': line.split()[0], 'match_score': float(line.split()[1])} for line in match_sc_contents if line.startswith('UM'))
+
+                for match_pdb in pdb_check(task_id_dir, base_only=True):
+                    match_PDBs.append(match_pdb.split('.')[0])
+
+            df = pd.DataFrame(match_score_dict_list, columns=['match_name', 'match_score'])
+
+
+        else:
+            with open(match_sc_path, 'r') as match_sc_contents:
+                match_score_dict_list = [{'match_name': line.split()[0], 'match_score': float(line.split()[1])} for line in match_sc_contents if line.startswith('UM')]
+
+            df = pd.DataFrame(match_score_dict_list, columns=['match_name', 'match_score'])
+
+            match_PDBs = [match.split('.')[0] for match in pdb_check(self.match_PDB_dir, base_only=True)]
 
         for match_name, match_df in df.groupby('match_name'):
             if match_name in match_PDBs:
@@ -285,6 +306,7 @@ if __name__ == '__main__':
     ideal_bs_dir = args['<ideal_binding_site_dir>']
     monomer = args['--monomer']
     match_sc_path = args['<match_sc_path>']
+    consolidate=args['consolidate']
 
     res_one_to_three = {'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU', 'F': 'PHE',
                         'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'K': 'LYS', 'L': 'LEU',
@@ -325,9 +347,6 @@ if __name__ == '__main__':
                 constraint_resnum_block = re.split('-|\.', pdb)[1][:-2]
                 constraint_resnums = [int(a) for a in constraint_resnum_block.split('_') if a != ''][1:]
 
-                # DEBUGGING
-                print(constraint_resnum_block)
-
                 ligand_name = pdb_split[5]
                 conformer_id = pdb_split[6]
                 conformer_name = '{}_{}'.format(ligand_name, conformer_id)
@@ -344,7 +363,7 @@ if __name__ == '__main__':
                 motif_pdb_filename = '{}-{}.pdb'.format(conformer_name, '1_' + '_'.join([str(a) for a in constraint_resnums]))
                 prody.writePDB(os.path.join(ideal_bs_dir, motif_pdb_filename), current_binding_motif)
 
-        filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer)
+        filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer, consolidate=consolidate)
 
         # Consolidate gurobi solutions into a single dataframe for easy lookup
         # Pirated from motifs.Generate_Constraints
@@ -430,7 +449,16 @@ if __name__ == '__main__':
 
         # Multiprocess match evaluation
         process = Pool()
-        match_metrics_list_of_dicts = process.map(evaluate_match, [pdb for pdb in pdb_check(match_PDB_dir)])
+
+        if consolidate:
+            pdb_list = []
+            for task_id_dir in directory_check(match_PDB_dir):
+                for match_pdb in pdb_check(task_id_dir):
+                    pdb_list.append(match_pdb)
+        else:
+            pdb_list = [pdb for pdb in pdb_check(match_PDB_dir)]
+
+        match_metrics_list_of_dicts = process.map(evaluate_match, pdb_list)
         process.close()
         process.join()
 
