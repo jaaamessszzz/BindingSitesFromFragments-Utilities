@@ -92,6 +92,7 @@ class Filter_Matches:
         match_score_dict_list = []
         match_score_dict = {}
 
+        print(consolidate)
         if consolidate:
             match_PDBs = []
 
@@ -305,7 +306,7 @@ if __name__ == '__main__':
     ideal_bs_dir = args['<ideal_binding_site_dir>']
     monomer = args['--monomer']
     match_sc_path = args['<match_sc_path>']
-    consolidate=args['consolidate']
+    consolidate = args['consolidate']
 
     res_one_to_three = {'A': 'ALA', 'C': 'CYS', 'D': 'ASP', 'E': 'GLU', 'F': 'PHE',
                         'G': 'GLY', 'H': 'HIS', 'I': 'ILE', 'K': 'LYS', 'L': 'LEU',
