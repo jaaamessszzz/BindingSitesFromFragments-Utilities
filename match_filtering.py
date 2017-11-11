@@ -385,6 +385,20 @@ if __name__ == '__main__':
             match_name = os.path.basename(os.path.normpath(matched_PDB))
             match_prody = prody.parsePDB(matched_PDB)
 
+            if any(match_prody.select('name CB within 11 of resname {}'.format(ligand)) == None, match_prody.select('protein') ==None):
+                row_dict = {'match_name': match_name,
+                            'ligand_shell_eleven': 0,
+                            'interface_CB_contact_percentage': 0,
+                            'motif_shell_CB': 0,
+                            'residue_match_score': 9999,
+                            'ligand_match_score': 9999,
+                            'min_res_per_chain': 0,
+                            'gurobi_motif_score': 0,
+                            'ligand_CB_clashes': 9999
+                            }
+
+                return row_dict
+
             # Parse matched_PDB to get ideal binding site name and residues
             match_pdb_name = os.path.basename(os.path.normpath(matched_PDB))
             pnc = re.split('_|-|\.', match_pdb_name)
