@@ -189,9 +189,8 @@ class Filter_Matches:
 
             # set residue numbers
             motif_residue_shell_CB = match_prody.select('name CB within 8 of (resnum {})'.format(motif_resnum))
-            resnum_list = motif_residue_shell_CB.getResnums()
-            if resnum_list is not None:
-                motif_residue_shell_resnums = set(resnum_list)
+            if motif_residue_shell_CB is not None:
+                motif_residue_shell_resnums = set(motif_residue_shell_CB.getResnums())
                 neighbor_bin_resnum_set = neighbor_bin_resnum_set | motif_residue_shell_resnums
 
         # select name CB and resnum [list of residue numbers]
