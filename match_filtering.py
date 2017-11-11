@@ -383,6 +383,23 @@ if __name__ == '__main__':
             """
             match_name = os.path.basename(os.path.normpath(matched_PDB))
 
+            # Parse matched_PDB to get ideal binding site name and residues
+            match_pdb_name = os.path.basename(os.path.normpath(matched_PDB))
+            pnc = re.split('_|-|\.', match_pdb_name)
+            match_name_dash_split = re.split('-|\.', match_pdb_name)
+
+            motif_index_list = match_name_dash_split[1].split('_')[1:-1]
+            motif_index_string = '_'.join(motif_index_list)
+
+            # Ideal Binding Site Name
+            ideal_binding_site_name = '{}_{}-1_{}'.format(pnc[5], pnc[6], motif_index_string)
+
+            # Motif Residues in Matched PDB
+            motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
+            motif_residue_IDs = [(res_one_to_three[motif_residue_ID_list[indx]], motif_residue_ID_list[indx + 1]) for
+                                 indx in range(0, len(motif_residue_ID_list), 2)]
+
+            # Validate PDB quality...
             row_dict = {'match_name': match_name,
                         'ligand_shell_eleven': 0,
                         'interface_CB_contact_percentage': 0,
@@ -405,23 +422,12 @@ if __name__ == '__main__':
             if any([match_prody.select('name CB within 11 of resname {}'.format(ligand)) == None, match_prody.select('protein') == None]):
                 return row_dict
 
-            if len(match_prody.select('protein')) < 100:
+            if len(match_prody.select('protein')) < 200:
                 return row_dict
 
-            # Parse matched_PDB to get ideal binding site name and residues
-            match_pdb_name = os.path.basename(os.path.normpath(matched_PDB))
-            pnc = re.split('_|-|\.', match_pdb_name)
-            match_name_dash_split = re.split('-|\.', match_pdb_name)
-
-            motif_index_list = match_name_dash_split[1].split('_')[1:-1]
-            motif_index_string = '_'.join(motif_index_list)
-
-            # Ideal Binding Site Name
-            ideal_binding_site_name = '{}_{}-1_{}'.format(pnc[5], pnc[6], motif_index_string)
-
-            # Motif Residues in Matched PDB
-            motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
-            motif_residue_IDs = [(res_one_to_three[motif_residue_ID_list[indx]], motif_residue_ID_list[indx + 1]) for indx in range(0, len(motif_residue_ID_list), 2)]
+            for res_tuple in motif_residue_IDs:
+                if match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) is None:
+                    return row_dict
 
             # Calculate number of CB atoms within 10A of ligand
             # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
