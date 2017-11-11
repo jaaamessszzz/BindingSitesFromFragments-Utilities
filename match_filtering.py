@@ -105,7 +105,6 @@ class Filter_Matches:
 
             df = pd.DataFrame(match_score_dict_list, columns=['match_name', 'match_score'])
 
-
         else:
             with open(match_sc_path, 'r') as match_sc_contents:
                 match_score_dict_list = [{'match_name': line.split()[0], 'match_score': float(line.split()[1])} for line in match_sc_contents if line.startswith('UM')]
