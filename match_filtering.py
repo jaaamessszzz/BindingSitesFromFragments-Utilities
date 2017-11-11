@@ -218,6 +218,11 @@ class Filter_Matches:
         # Atom orders are all messed up in the matched PDBs, need to manually reorder them before aligning coordsets
         ideal_atom_order = ideal_prody.select('resname {}'.format(self.ligand)).getNames()
         match_atom_list = [match_prody.select('resname {} and name {}'.format(self.ligand, atom)) for atom in ideal_atom_order]
+
+        # Nasty temp fix...
+        if None in match_atom_list:
+            return 9998, 9998
+
         match_atom_coords = np.asarray([atom.getCoords()[0] for atom in match_atom_list])
 
         # superpose match ligand onto ideal ligand (RMSD should be ~0)
