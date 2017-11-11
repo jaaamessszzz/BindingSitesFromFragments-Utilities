@@ -276,9 +276,9 @@ class Filter_Matches:
         # Calculate match score as defined by ME!
         # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
 
-        # Debugging
-        for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
-            print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
+        # # Debugging
+        # for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
+        #     print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
 
         try:
             # residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
@@ -400,7 +400,7 @@ if __name__ == '__main__':
                                  indx in range(0, len(motif_residue_ID_list), 2)]
 
             # Validate PDB quality...
-            row_dict = {'match_name': match_name,
+            row_dict = {'match_name': matched_PDB,
                         'ligand_shell_eleven': 0,
                         'interface_CB_contact_percentage': 0,
                         'motif_shell_CB': 0,
@@ -433,6 +433,9 @@ if __name__ == '__main__':
                 return row_dict
 
             chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
+            if len(chains_in_dimer) != 2:
+                return row_dict
+
             interface_cb = match_prody.select('(name CB and chain {}) within 8 of chain {} or\
             (name CB and chain {}) within 8 of chain {}'.format(chains_in_dimer[0], chains_in_dimer[1], chains_in_dimer[1], chains_in_dimer[0]))
             if interface_cb is None:
@@ -478,7 +481,7 @@ if __name__ == '__main__':
             gurobi_score = gurobi_score_row['Obj_score'].iloc[0]
 
             # Aggragate results
-            row_dict = {'match_name': match_name,
+            row_dict = {'match_name': matched_PDB,
                         'ligand_shell_eleven': ligand_shell_eleven,
                         'interface_CB_contact_percentage': interface_CB_contact_percentage,
                         'motif_shell_CB': motif_shell_CB,
