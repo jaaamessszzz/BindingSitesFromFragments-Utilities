@@ -218,11 +218,6 @@ class Filter_Matches:
         # Atom orders are all messed up in the matched PDBs, need to manually reorder them before aligning coordsets
         ideal_atom_order = ideal_prody.select('resname {}'.format(self.ligand)).getNames()
         match_atom_list = [match_prody.select('resname {} and name {}'.format(self.ligand, atom)) for atom in ideal_atom_order]
-
-        # Nasty temp fix...
-        if None in match_atom_list:
-            return 9998, 9998
-
         match_atom_coords = np.asarray([atom.getCoords()[0] for atom in match_atom_list])
 
         # superpose match ligand onto ideal ligand (RMSD should be ~0)
@@ -424,7 +419,7 @@ if __name__ == '__main__':
             if not match_prody:
                 return row_dict
 
-            if any([match_prody.select('name CB within 11 of resname {}'.format(ligand)) == None, match_prody.select('protein') == None]):
+            if any([match_prody.select('name CB within 11 of resname {}'.format(ligand)) is None, match_prody.select('protein') is None]):
                 return row_dict
 
             if len(match_prody.select('protein')) < 200:
@@ -433,6 +428,18 @@ if __name__ == '__main__':
             for res_tuple in motif_residue_IDs:
                 if match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) is None:
                     return row_dict
+
+            if match_prody.select('resname {}'.format(ligand)) is None:
+                return row_dict
+
+            chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
+            interface_cb = match_prody.select('(name CB and chain {}) within 8 of chain {} or\
+            (name CB and chain {}) within 8 of chain {}'.format(chains_in_dimer[0], chains_in_dimer[1], chains_in_dimer[1], chains_in_dimer[0]))
+            if interface_cb is None:
+                return row_dict
+
+            if match_prody.select('name CB within 6 of resname {}'.format(ligand)) is None:
+                return row_dict
 
             # Calculate number of CB atoms within 10A of ligand
             # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
