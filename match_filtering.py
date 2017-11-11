@@ -4,7 +4,7 @@
 Filter matches for a given target compound using constraints generated with the BSFF package. 
 
 Usage:
-    match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> (<match_sc_path> | consolidate) (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>]
+    match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> (single <match_sc_path> | consolidate) (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>]
 
 Arguments:     
     <ligand>
@@ -92,7 +92,6 @@ class Filter_Matches:
         match_score_dict_list = []
         match_score_dict = {}
 
-        print(consolidate)
         if consolidate:
             match_PDBs = []
 
