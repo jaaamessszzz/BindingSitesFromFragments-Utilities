@@ -98,7 +98,9 @@ class Filter_Matches:
             for task_id_dir in directory_check(match_PDB_dir):
                 if os.path.basename(os.path.normpath(task_id_dir)) not in ['cst_files', 'stdout', 'matches'] and 'matcher_score.sc' in os.listdir(task_id_dir):
                     with open(os.path.join(task_id_dir, 'matcher_score.sc'), 'r') as match_sc_contents:
-                        match_score_dict_list.append({'match_name': line.split()[0], 'match_score': float(line.split()[1])} for line in match_sc_contents if line.startswith('UM'))
+                        for line in match_sc_contents:
+                            if line.startswith('UM'):
+                                match_score_dict_list.append({'match_name': line.split()[0], 'match_score': float(line.split()[1])})
                 else:
                     continue
 
