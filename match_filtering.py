@@ -284,7 +284,7 @@ class Filter_Matches:
             # residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
             residue_match_score = 0
             for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
-                print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
+                # print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
                 residue_match_score += prody.calcRMSD(ideal, match)
 
         except Exception as e:
@@ -299,6 +299,12 @@ class Filter_Matches:
             ligand_match_score = 9999
 
         return residue_match_score, ligand_match_score
+
+def residue_indicies_from_match_name(match_pdb_name):
+    pnc = re.split('_|-|\.', match_pdb_name)
+    motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
+    motif_residue_IDs = [motif_residue_ID_list[indx + 1] for indx in range(0, len(motif_residue_ID_list), 2)]
+    return motif_residue_IDs
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)
@@ -322,17 +328,20 @@ if __name__ == '__main__':
         # Generate ideal binding sites if ideal_bs_dir == False
         # Dump into ``ideal_bs_dir``
         if not ideal_bs_dir:
+            print(args)
             ideal_bs_dir = 'Motif_PDBs'
             os.makedirs(ideal_bs_dir, exist_ok=True)
             conformer_set = set()
 
-            for pdb in pdb_check(match_PDB_dir, base_only=True):
-            # Parse for constraint file name, add to set
-                pdb_split = re.split('_|-|\.', pdb)
-                ligand_name = pdb_split[5]
-                conformer_id = pdb_split[6]
-                conformer_name = '{}_{}'.format(ligand_name, conformer_id)
-                conformer_set.add(conformer_name)
+            for path, subdirs, files in os.walk(match_PDB_dir):
+                for pdb in files:
+                    if pdb.startswith('UM'):
+                        # Parse for constraint file name, add to set
+                        pdb_split = re.split('_|-|\.', pdb)
+                        ligand_name = pdb_split[5]
+                        conformer_id = pdb_split[6]
+                        conformer_name = '{}_{}'.format(ligand_name, conformer_id)
+                        conformer_set.add(conformer_name)
 
             # Load all fuzzballs into dict
             fuzzball_dict = {}
@@ -341,29 +350,32 @@ if __name__ == '__main__':
                 if current_conformer_fuzzball in conformer_set:
                     fuzzball_dict[current_conformer_fuzzball] = prody.parsePDB(fuzzball)
 
-            # Generate Motif PDBs
-            for pdb in pdb_check(match_PDB_dir, base_only=True):
+            for path, subdirs, files in os.walk(match_PDB_dir):
 
-                # Parse filename to get fuzzball resnums (splices remove prefix and suffix 1)
-                pdb_split = re.split('_|-|\.', pdb)
-                constraint_resnum_block = re.split('-|\.', pdb)[1][:-2]
-                constraint_resnums = [int(a) for a in constraint_resnum_block.split('_') if a != ''][1:]
+                # Generate Motif PDBs
+                # for pdb in pdb_check(match_PDB_dir, base_only=True):
+                for pdb in files:
+                    if pdb.startswith('UM'):
+                        # Parse filename to get fuzzball resnums (splices remove prefix and suffix 1)
+                        pdb_split = re.split('_|-|\.', pdb)
+                        constraint_resnum_block = re.split('-|\.', pdb)[1][:-2]
+                        constraint_resnums = [int(a) for a in constraint_resnum_block.split('_') if a != ''][1:]
 
-                ligand_name = pdb_split[5]
-                conformer_id = pdb_split[6]
-                conformer_name = '{}_{}'.format(ligand_name, conformer_id)
+                        ligand_name = pdb_split[5]
+                        conformer_id = pdb_split[6]
+                        conformer_name = '{}_{}'.format(ligand_name, conformer_id)
 
-                current_fuzzball = fuzzball_dict[conformer_name]
+                        current_fuzzball = fuzzball_dict[conformer_name]
 
-                # Start binding motif with ligand
-                current_binding_motif = current_fuzzball.select('resnum 1')
+                        # Start binding motif with ligand
+                        current_binding_motif = current_fuzzball.select('resnum 1')
 
-                # Add remaining residues
-                for resnum in constraint_resnums:
-                    current_binding_motif = current_binding_motif + current_fuzzball.select('resnum {}'.format(resnum))
+                        # Add remaining residues
+                        for resnum in constraint_resnums:
+                            current_binding_motif = current_binding_motif + current_fuzzball.select('resnum {}'.format(resnum))
 
-                motif_pdb_filename = '{}-{}.pdb'.format(conformer_name, '1_' + '_'.join([str(a) for a in constraint_resnums]))
-                prody.writePDB(os.path.join(ideal_bs_dir, motif_pdb_filename), current_binding_motif)
+                        motif_pdb_filename = '{}-{}.pdb'.format(conformer_name, '1_' + '_'.join([str(a) for a in constraint_resnums]))
+                        prody.writePDB(os.path.join(ideal_bs_dir, motif_pdb_filename), current_binding_motif)
 
         filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer, consolidate=consolidate)
 
@@ -399,7 +411,7 @@ if __name__ == '__main__':
             motif_residue_IDs = [(res_one_to_three[motif_residue_ID_list[indx]], motif_residue_ID_list[indx + 1]) for
                                  indx in range(0, len(motif_residue_ID_list), 2)]
 
-            # Validate PDB quality...
+            # Validate PDB quality... (HACKY BUT W/E IDGAF)
             row_dict = {'match_name': matched_PDB,
                         'ligand_shell_eleven': 0,
                         'interface_CB_contact_percentage': 0,
@@ -416,33 +428,26 @@ if __name__ == '__main__':
             except:
                 match_prody = False
 
-            if not match_prody:
-                return row_dict
+            chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
+            interface_cb = match_prody.select('(name CB and chain {}) within 8 of chain {} or\
+            (name CB and chain {}) within 8 of chain {}'.format(chains_in_dimer[0], chains_in_dimer[1], chains_in_dimer[1], chains_in_dimer[0]))
 
-            if any([match_prody.select('name CB within 11 of resname {}'.format(ligand)) is None, match_prody.select('protein') is None]):
-                return row_dict
+            condition_list = [not match_prody,
+                              match_prody.select('name CB within 11 of resname {}'.format(ligand)) is None,
+                              match_prody.select('protein') is None,
+                              len(match_prody.select('protein')) < 200,
+                              match_prody.select('resname {}'.format(ligand)) is None,
+                              chains_in_dimer != 2,
+                              interface_cb is None,
+                              match_prody.select('name CB within 6 of resname {}'.format(ligand)) is None
+                              ]
 
-            if len(match_prody.select('protein')) < 200:
+            if any(condition_list):
                 return row_dict
 
             for res_tuple in motif_residue_IDs:
                 if match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) is None:
                     return row_dict
-
-            if match_prody.select('resname {}'.format(ligand)) is None:
-                return row_dict
-
-            chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
-            if len(chains_in_dimer) != 2:
-                return row_dict
-
-            interface_cb = match_prody.select('(name CB and chain {}) within 8 of chain {} or\
-            (name CB and chain {}) within 8 of chain {}'.format(chains_in_dimer[0], chains_in_dimer[1], chains_in_dimer[1], chains_in_dimer[0]))
-            if interface_cb is None:
-                return row_dict
-
-            if match_prody.select('name CB within 6 of resname {}'.format(ligand)) is None:
-                return row_dict
 
             # Calculate number of CB atoms within 10A of ligand
             # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
@@ -570,8 +575,9 @@ if __name__ == '__main__':
     filtered_matches_dir = 'Matches-Filtered'
     os.makedirs(filtered_matches_dir, exist_ok=True)
     for match in list(final_set):
-        shutil.copy(os.path.join(match_PDB_dir, match), filtered_matches_dir)
+        shutil.copy(match, filtered_matches_dir)
 
     # Export csv with metrics of final set
     final_set_df = df.loc[list(final_set)]
+    final_set_df = final_set_df.assign(selection_string=[residue_indicies_from_match_name(name) for name in final_set_df['match_name'].values])
     final_set_df.to_csv(os.path.join(filtered_matches_dir, 'Final_set_metrics.csv'))
