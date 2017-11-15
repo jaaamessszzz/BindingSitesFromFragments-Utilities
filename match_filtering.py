@@ -303,8 +303,12 @@ class Filter_Matches:
 def residue_indicies_from_match_name(match_pdb_name):
     pnc = re.split('_|-|\.', match_pdb_name)
     motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
-    motif_residue_IDs = [motif_residue_ID_list[indx + 1] for indx in range(0, len(motif_residue_ID_list), 2)]
+    motif_residue_IDs = [int(motif_residue_ID_list[indx + 1]) for indx in range(0, len(motif_residue_ID_list), 2)]
     return motif_residue_IDs
+
+def selection_string_from_match_name(match_pdb_name):
+    motif_residue_IDs = residue_indicies_from_match_name(match_pdb_name)
+    return 'show sticks, resi {}'.format('+'.join(motif_residue_IDs))
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)
@@ -579,5 +583,7 @@ if __name__ == '__main__':
 
     # Export csv with metrics of final set
     final_set_df = df.loc[list(final_set)]
-    final_set_df = final_set_df.assign(selection_string=[residue_indicies_from_match_name(name) for name in final_set_df['match_name'].values])
+    final_set_df = final_set_df.assign(selection_string=[selection_string_from_match_name(name) for name in final_set_df['match_name'].values],
+                                       matched_residues=[residue_indicies_from_match_name(name) for name in final_set_df['match_name'].values]
+                                       )
     final_set_df.to_csv(os.path.join(filtered_matches_dir, 'Final_set_metrics.csv'))
