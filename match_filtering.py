@@ -301,7 +301,7 @@ class Filter_Matches:
         return residue_match_score, ligand_match_score
 
 def residue_indicies_from_match_name(match_pdb_name):
-    pnc = re.split('_|-|\.', match_pdb_name)
+    pnc = re.split('_|-|\.', os.path.basename(os.path.normpath(match_pdb_name)))
     motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
     motif_residue_IDs = [int(motif_residue_ID_list[indx + 1]) for indx in range(0, len(motif_residue_ID_list), 2)]
     return motif_residue_IDs
@@ -332,7 +332,6 @@ if __name__ == '__main__':
         # Generate ideal binding sites if ideal_bs_dir == False
         # Dump into ``ideal_bs_dir``
         if not ideal_bs_dir:
-            print(args)
             ideal_bs_dir = 'Motif_PDBs'
             os.makedirs(ideal_bs_dir, exist_ok=True)
             conformer_set = set()
@@ -520,6 +519,10 @@ if __name__ == '__main__':
 
         # Return passing matcher results
         df = pd.DataFrame(match_metrics_list_of_dicts)
+        df = df.assign(selection_string=[selection_string_from_match_name(name) for name in df['match_name'].values],
+                       matched_residues=[len(residue_indicies_from_match_name(name)) for name in df['match_name'].values]
+                       )
+
         df.set_index(['match_name'], inplace=True)
         df.to_csv('Match_Filter_Results-{}.csv'.format(args['<ligand>']))
 
@@ -540,9 +543,16 @@ if __name__ == '__main__':
                       # 'gurobi_motif_score': True # I don't think we will want to filter based on motif scores...
                       }
 
+    # TEMP
+    ascending_dict = {}
+
     # Hard Cutoff filters
     # Accept anything up to value for each key
     hard_cutoff_dict = {'ligand_CB_clashes': 1}
+
+    # Residue Count Filter
+    # Accept matches with specified number of residues
+    match_residue_count = {'matched_residues': 5}
 
     # Dump lists of passing matches for each metric into set_list
     set_list = []
@@ -558,6 +568,9 @@ if __name__ == '__main__':
         elif index in list(hard_cutoff_dict.keys()):
             print(index)
             set_list.append(set(column.loc[column <= hard_cutoff_dict[index]].index.tolist()))
+        elif index in list(match_residue_count.keys()):
+            print(index)
+            set_list.append(set(column.loc[column == match_residue_count[index]].index.tolist()))
 
     # Get intersection of matches that are in top percentage for each metric
     initial_set = set.intersection(*set_list)
@@ -575,15 +588,16 @@ if __name__ == '__main__':
     pprint.pprint(final_set)
     print(len(final_set))
 
-    # Move matches that pass filters into a new directory
-    filtered_matches_dir = 'Matches-Filtered'
-    os.makedirs(filtered_matches_dir, exist_ok=True)
-    for match in list(final_set):
-        shutil.copy(match, filtered_matches_dir)
+    if len(final_set) != 0:
+        # Move matches that pass filters into a new directory
+        filtered_matches_dir = 'Matches-Filtered'
+        os.makedirs(filtered_matches_dir, exist_ok=True)
+        for match in list(final_set):
+            shutil.copy(match, filtered_matches_dir)
 
-    # Export csv with metrics of final set
-    final_set_df = df.loc[list(final_set)]
-    final_set_df = final_set_df.assign(selection_string=[selection_string_from_match_name(name) for name in final_set_df['match_name'].values],
-                                       matched_residues=[residue_indicies_from_match_name(name) for name in final_set_df['match_name'].values]
-                                       )
-    final_set_df.to_csv(os.path.join(filtered_matches_dir, 'Final_set_metrics.csv'))
+        # Export csv with metrics of final set
+        final_set_df = df.loc[list(final_set)]
+        final_set_df.to_csv(os.path.join(filtered_matches_dir, 'Final_set_metrics.csv'))
+
+    else:
+        print('No matches pass the specified filters! Sad!')
