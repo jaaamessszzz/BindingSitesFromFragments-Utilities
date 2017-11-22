@@ -5,7 +5,6 @@ Filter matches for a given target compound using constraints generated with the 
 
 Usage:
     match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> (single <match_sc_path> | consolidate) (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>]
-    match_filtering <ligand> <match_PDB_dir> (single <match_sc_path> | consolidate) <ideal_binding_site_dir> [--monomer] [--csv <csv_path>] [--ideal_override]
 
 Arguments:     
     <ligand>
@@ -40,11 +39,6 @@ Options:
         
     -c --csv
         Import csv at csv_path from previous match set
-
-    -i --ideal_override
-        [WARNING: EXTREMELEY HACKY]
-        Overrides automatic binding motif name detection and uses the ONE defined binding motif in the provided
-        <ideal_binding_site_dir>. ONE. SINGLE. BINDING. MOTIF.
 
 """
 
@@ -415,10 +409,7 @@ if __name__ == '__main__':
             motif_index_string = '_'.join(motif_index_list)
 
             # Ideal Binding Site Name
-            if args['--ideal_override']:
-                ideal_binding_site_name = os.listdir(ideal_bs_dir)[0] # The hackiness, it burns
-            else:
-                ideal_binding_site_name = '{}_{}-1_{}'.format(pnc[5], pnc[6], motif_index_string)
+            ideal_binding_site_name = '{}_{}-1_{}'.format(pnc[5], pnc[6], motif_index_string)
 
             # Motif Residues in Matched PDB
             motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
@@ -496,13 +487,10 @@ if __name__ == '__main__':
 
             # Count number of motif residues that are within 2A of ligand
             clashing_residues = match_prody.select('protein within 2 of chain X')
-            if clashing_residues == None:
-                clashing_motif_resnums_count = 0
-            else:
-                clashing_resnums = set(clashing_residues.getResnums())
-                matched_resnums = set([int(a[1]) for a in motif_residue_IDs])
-                clashing_motif_resnums = clashing_resnums & matched_resnums
-                clashing_motif_resnums_count = len(clashing_motif_resnums)
+            clashing_resnums = set(clashing_residues.getResnums())
+            matched_resnums = set([a[1] for a in motif_residue_IDs])
+            clashing_motif_resnums = clashing_resnums & matched_resnums
+            clashing_motif_resnums_count = len(clashing_motif_resnums)
 
             # Look up binding motif score in gurobi solutions
             current_conformer = '{}_{}'.format(pnc[5], pnc[6])
@@ -595,7 +583,7 @@ if __name__ == '__main__':
             set_list.append(set(column.loc[column <= hard_cutoff_dict[index]].index.tolist()))
         elif index in list(match_residue_count.keys()):
             print(index)
-            set_list.append(set(column.loc[column >= match_residue_count[index]].index.tolist()))
+            set_list.append(set(column.loc[column == match_residue_count[index]].index.tolist()))
 
     # Get intersection of matches that are in top percentage for each metric
     initial_set = set.intersection(*set_list)
