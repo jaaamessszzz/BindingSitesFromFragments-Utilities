@@ -5,6 +5,7 @@ Filter matches for a given target compound using constraints generated with the 
 
 Usage:
     match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> (single <match_sc_path> | consolidate) (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>]
+    match_filtering <ligand> <match_PDB_dir> (single <match_sc_path> | consolidate) [--monomer] [--csv <csv_path>]
 
 Arguments:     
     <ligand>
@@ -199,7 +200,7 @@ class Filter_Matches:
         # print('Motif shell CB count: {}'.format(motif_shell_CB))
         return ligand_shell_eleven, interface_CB_contact_percentage, motif_shell_CB
 
-    def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs, match_name):
+    def calculate_rmsd_stats(self, match_prody, ideal_name, motif_residue_IDs, match_name, ligand_match_score_only=False):
         """
         RMSD things
         
@@ -211,85 +212,89 @@ class Filter_Matches:
         :param ideal_name: name of ideal binding site PDB to be retireved from preloaded dict
         :return: 
         """
-        ideal_prody = self.ideal_bs_dict[ideal_name]
+        ligand_match_score_only = 9999
+        residue_match_score = 9999
 
-        # Calculate RMSD to ideal binding site  (side chains only, not ligand)
+        if not ligand_match_score_only:
+            ideal_prody = self.ideal_bs_dict[ideal_name]
 
-        # Atom orders are all messed up in the matched PDBs, need to manually reorder them before aligning coordsets
-        ideal_atom_order = ideal_prody.select('resname {}'.format(self.ligand)).getNames()
-        match_atom_list = [match_prody.select('resname {} and name {}'.format(self.ligand, atom)) for atom in ideal_atom_order]
-        match_atom_coords = np.asarray([atom.getCoords()[0] for atom in match_atom_list])
+            # Calculate RMSD to ideal binding site  (side chains only, not ligand)
 
-        # superpose match ligand onto ideal ligand (RMSD should be ~0)
-        ideal_ligand = ideal_prody.select('resname {}'.format(self.ligand))
-        transformation = prody.calcTransformation(ideal_ligand.getCoords(), match_atom_coords)
-        transformed_ideal_prody = prody.applyTransformation(transformation, ideal_prody)
+            # Atom orders are all messed up in the matched PDBs, need to manually reorder them before aligning coordsets
+            ideal_atom_order = ideal_prody.select('resname {}'.format(self.ligand)).getNames()
+            match_atom_list = [match_prody.select('resname {} and name {}'.format(self.ligand, atom)) for atom in ideal_atom_order]
+            match_atom_coords = np.asarray([atom.getCoords()[0] for atom in match_atom_list])
 
-        # print('RMSD: {}'.format(prody.calcRMSD(transformed_ideal_prody.select('resname {}'.format(self.ligand)), match_atom_coords)))
+            # superpose match ligand onto ideal ligand (RMSD should be ~0)
+            ideal_ligand = ideal_prody.select('resname {}'.format(self.ligand))
+            transformation = prody.calcTransformation(ideal_ligand.getCoords(), match_atom_coords)
+            transformed_ideal_prody = prody.applyTransformation(transformation, ideal_prody)
 
-        # Select residues from ideal and get coords
-        hv = transformed_ideal_prody.getHierView()
-        backbone_atom_name_list = ['N', 'CA', 'C', 'O', 'OXT']
+            # print('RMSD: {}'.format(prody.calcRMSD(transformed_ideal_prody.select('resname {}'.format(self.ligand)), match_atom_coords)))
 
-        # ideal_residue_prody_list = [res.select('not hydrogen') for res in hv.iterResidues()]
-        ideal_residue_prody_list = []
-        backbone_contact_bool = []
+            # Select residues from ideal and get coords
+            hv = transformed_ideal_prody.getHierView()
+            backbone_atom_name_list = ['N', 'CA', 'C', 'O', 'OXT']
 
-        # make copy of ligand so atom indicies are reset
-        ligand_copy = transformed_ideal_prody.select('resname {} and not hydrogen'.format(self.ligand)).copy()
+            # ideal_residue_prody_list = [res.select('not hydrogen') for res in hv.iterResidues()]
+            ideal_residue_prody_list = []
+            backbone_contact_bool = []
 
-        for motif_residue in hv.iterResidues():
-            if motif_residue.getResname() != self.ligand:
+            # make copy of ligand so atom indicies are reset
+            ligand_copy = transformed_ideal_prody.select('resname {} and not hydrogen'.format(self.ligand)).copy()
 
+            for motif_residue in hv.iterResidues():
+                if motif_residue.getResname() != self.ligand:
+
+                    # Make copy of residue so atom indicies are reset
+                    ideal_motif_copy = motif_residue.select('not hydrogen').copy()
+
+                    # Get closest atom-atom contacts
+                    # row_index_low == motif_copy && column_index_low == ligand_copy
+                    contact_distance, row_index_low, column_index_low = minimum_contact_distance(ideal_motif_copy, ligand_copy, return_indices=True)
+
+                    # If backbone contact {C, CA, N, O} then only consider backbone atoms for RMSD calculation
+                    motif_contact_atom = ideal_motif_copy.select('index {}'.format(row_index_low))
+                    if motif_contact_atom.getNames()[0] in backbone_atom_name_list:
+                        ideal_residue_prody_list.append(ideal_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
+                        backbone_contact_bool.append(True)
+                    else:
+                        ideal_residue_prody_list.append(ideal_motif_copy.select('protein'))
+                        backbone_contact_bool.append(False)
+
+            # Select residues from match and get coords
+
+            # motif_residue_prody_list = [match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) for res_tuple in motif_residue_IDs]
+            motif_residue_prody_list = []
+
+            # CANNOT USE MATCHED MOTIF RESIDUE TO GET CONTACTS, MATCHED MOTIF CAN BE ALL FUCKED UP
+            for res_tuple, bb_contact in zip(motif_residue_IDs, backbone_contact_bool):
                 # Make copy of residue so atom indicies are reset
-                ideal_motif_copy = motif_residue.select('not hydrogen').copy()
+                match_motif_copy = match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])).copy()
 
-                # Get closest atom-atom contacts
-                # row_index_low == motif_copy && column_index_low == ligand_copy
-                contact_distance, row_index_low, column_index_low = minimum_contact_distance(ideal_motif_copy, ligand_copy, return_indices=True)
-
-                # If backbone contact {C, CA, N, O} then only consider backbone atoms for RMSD calculation
-                motif_contact_atom = ideal_motif_copy.select('index {}'.format(row_index_low))
-                if motif_contact_atom.getNames()[0] in backbone_atom_name_list:
-                    ideal_residue_prody_list.append(ideal_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
-                    backbone_contact_bool.append(True)
+                # # Get closest atom-atom contacts
+                if bb_contact:
+                    motif_residue_prody_list.append(match_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
                 else:
-                    ideal_residue_prody_list.append(ideal_motif_copy.select('protein'))
-                    backbone_contact_bool.append(False)
+                    motif_residue_prody_list.append(match_motif_copy.select('protein'))
 
-        # Select residues from match and get coords
+            # Calculate match score as defined by ME!
+            # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
 
-        # motif_residue_prody_list = [match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) for res_tuple in motif_residue_IDs]
-        motif_residue_prody_list = []
+            # # Debugging
+            # for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
+            #     print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
 
-        # CANNOT USE MATCHED MOTIF RESIDUE TO GET CONTACTS, MATCHED MOTIF CAN BE ALL FUCKED UP
-        for res_tuple, bb_contact in zip(motif_residue_IDs, backbone_contact_bool):
-            # Make copy of residue so atom indicies are reset
-            match_motif_copy = match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])).copy()
+            try:
+                # residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
+                residue_match_score = 0
+                for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
+                    # print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
+                    residue_match_score += prody.calcRMSD(ideal, match)
 
-            # # Get closest atom-atom contacts
-            if bb_contact:
-                motif_residue_prody_list.append(match_motif_copy.select('name {}'.format(' '.join(backbone_atom_name_list))))
-            else:
-                motif_residue_prody_list.append(match_motif_copy.select('protein'))
-
-        # Calculate match score as defined by ME!
-        # todo: UM_1_E252W248T285W6_1_3A4U_TEP_0001-11-17-2-22_1.pdb has trouble aligning...
-
-        # # Debugging
-        # for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
-        #     print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
-
-        try:
-            # residue_match_score = sum([prody.calcRMSD(ideal, match) for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list)])
-            residue_match_score = 0
-            for ideal, match in zip(ideal_residue_prody_list, motif_residue_prody_list):
-                # print(ideal.getResnames()[0], len([a for a in ideal]), match.getResnames()[0], len([b for b in match]))
-                residue_match_score += prody.calcRMSD(ideal, match)
-
-        except Exception as e:
-            print('\n\n{}\n\n'.format(e))
-            residue_match_score = 9999
+            except Exception as e:
+                print('\n\n{}\n\n'.format(e))
+                residue_match_score = 9999
 
         # Get ligand match score from matcher_scores.sc
         # todo: sometimes things aren't added to the match_score.sc??
@@ -464,7 +469,10 @@ if __name__ == '__main__':
             # Calculate match score as defined by Roland
             # Calculate RMSD to ideal binding site  (side chains only, not ligand)
 
-            residue_match_score, ligand_match_score = filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs, match_name)
+            if args['<ideal_binding_site_dir>']:
+                residue_match_score, ligand_match_score = filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs, match_name)
+            else:
+                residue_match_score, ligand_match_score = filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs, match_name, ligand_match_score_only=True)
 
             # minimum number of motif residues per chain
             # todo: accomodate cases where all residues are on one chain! Currently returns 4 b/c list of res.getChIDs() is used to determine this
@@ -476,8 +484,6 @@ if __name__ == '__main__':
             # todo: update to accomodate arbitrary number of motif residues
             try:
                 min_res_per_chain = min([motif_residue_chain_list.count(chain) for chain in (set(motif_residue_chain_list) - set('X'))])
-                if min_res_per_chain == 4:
-                    min_res_per_chain = 0
             except:
                 min_res_per_chain = -1
 
@@ -511,6 +517,7 @@ if __name__ == '__main__':
                         'min_res_per_chain': min_res_per_chain,
                         'gurobi_motif_score': gurobi_score,
                         'ligand_CB_clashes': ligand_CB_clashes
+                        'clashing_motif_resnums_count': clashing_motif_resnums_count
                         }
 
             return row_dict
