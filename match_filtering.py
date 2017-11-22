@@ -307,7 +307,7 @@ class Filter_Matches:
 def residue_indicies_from_match_name(match_pdb_name):
     pnc = re.split('_|-|\.', os.path.basename(os.path.normpath(match_pdb_name)))
     motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
-    motif_residue_IDs = [int(motif_residue_ID_list[indx + 1]) for indx in range(0, len(motif_residue_ID_list), 2)]
+    motif_residue_IDs = [motif_residue_ID_list[indx + 1] for indx in range(0, len(motif_residue_ID_list), 2)]
     return motif_residue_IDs
 
 def selection_string_from_match_name(match_pdb_name):
