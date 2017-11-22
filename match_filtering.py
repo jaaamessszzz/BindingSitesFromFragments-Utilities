@@ -386,7 +386,7 @@ if __name__ == '__main__':
                         motif_pdb_filename = '{}-{}.pdb'.format(conformer_name, '1_' + '_'.join([str(a) for a in constraint_resnums]))
                         prody.writePDB(os.path.join(ideal_bs_dir, motif_pdb_filename), current_binding_motif)
 
-        filter.ideal_bs_dict = filter._import_ideal_binding_sites()
+            filter.ideal_bs_dict = filter._import_ideal_binding_sites()
 
         # Consolidate gurobi solutions into a single dataframe for easy lookup
         # Pirated from motifs.Generate_Constraints
@@ -422,7 +422,9 @@ if __name__ == '__main__':
             motif_residue_IDs = [(res_one_to_three[motif_residue_ID_list[indx]], motif_residue_ID_list[indx + 1]) for
                                  indx in range(0, len(motif_residue_ID_list), 2)]
 
-            # Validate PDB quality... (HACKY BUT W/E IDGAF)
+            # --- Validate PDB quality... (HACKY BUT W/E IDGAF) --- #
+            # This is necessary when I forget to adjust memory allocations for submitted jobs on the cluster and things die unexpectedly...
+
             row_dict = {'match_name': matched_PDB,
                         'ligand_shell_eleven': 0,
                         'interface_CB_contact_percentage': 0,
@@ -437,9 +439,12 @@ if __name__ == '__main__':
             try:
                 match_prody = prody.parsePDB(matched_PDB)
             except:
-                match_prody = False
+                return row_dict
 
             chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
+            if len(chains_in_dimer) != 2:
+                return row_dict
+
             interface_cb = match_prody.select('(name CB and chain {}) within 8 of chain {} or\
             (name CB and chain {}) within 8 of chain {}'.format(chains_in_dimer[0], chains_in_dimer[1], chains_in_dimer[1], chains_in_dimer[0]))
 
@@ -448,7 +453,6 @@ if __name__ == '__main__':
                               match_prody.select('protein') is None,
                               len(match_prody.select('protein')) < 200,
                               match_prody.select('resname {}'.format(ligand)) is None,
-                              chains_in_dimer != 2,
                               interface_cb is None,
                               match_prody.select('name CB within 6 of resname {}'.format(ligand)) is None
                               ]
