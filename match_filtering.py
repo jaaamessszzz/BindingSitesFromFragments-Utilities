@@ -79,7 +79,6 @@ class Filter_Matches:
         self.consolidate = consolidate
         self.match_PDB_dir = match_PDB_dir
         self.ideal_bs_dir = ideal_bs_dir
-        self.ideal_bs_dict = self._import_ideal_binding_sites()
         self.match_score_dict = self.setup_match_score_dict(match_sc_path)
         self.df = self._set_up_dataframe()
 
@@ -334,9 +333,11 @@ if __name__ == '__main__':
         df = pd.read_csv(args['<csv_path>'])
 
     else:
+        filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer, consolidate=consolidate)
+
         # Generate ideal binding sites if ideal_bs_dir == False
         # Dump into ``ideal_bs_dir``
-        if not ideal_bs_dir:
+        if not ideal_bs_dir and args['fuzzballs']:
             ideal_bs_dir = 'Motif_PDBs'
             os.makedirs(ideal_bs_dir, exist_ok=True)
             conformer_set = set()
@@ -385,7 +386,7 @@ if __name__ == '__main__':
                         motif_pdb_filename = '{}-{}.pdb'.format(conformer_name, '1_' + '_'.join([str(a) for a in constraint_resnums]))
                         prody.writePDB(os.path.join(ideal_bs_dir, motif_pdb_filename), current_binding_motif)
 
-        filter = Filter_Matches(ligand, match_PDB_dir, ideal_bs_dir, match_sc_path, monomer=monomer, consolidate=consolidate)
+        filter.ideal_bs_dict = filter._import_ideal_binding_sites()
 
         # Consolidate gurobi solutions into a single dataframe for easy lookup
         # Pirated from motifs.Generate_Constraints
@@ -516,7 +517,7 @@ if __name__ == '__main__':
                         'ligand_match_score': ligand_match_score,
                         'min_res_per_chain': min_res_per_chain,
                         'gurobi_motif_score': gurobi_score,
-                        'ligand_CB_clashes': ligand_CB_clashes
+                        'ligand_CB_clashes': ligand_CB_clashes,
                         'clashing_motif_resnums_count': clashing_motif_resnums_count
                         }
 
