@@ -498,10 +498,13 @@ if __name__ == '__main__':
 
             # Count number of motif residues that are within 2A of ligand
             clashing_residues = match_prody.select('protein within 2 of chain X')
-            clashing_resnums = set(clashing_residues.getResnums())
-            matched_resnums = set([a[1] for a in motif_residue_IDs])
-            clashing_motif_resnums = clashing_resnums & matched_resnums
-            clashing_motif_resnums_count = len(clashing_motif_resnums)
+            if clashing_residues == None:
+                clashing_motif_resnums_count = 0
+            else:
+                clashing_resnums = set(clashing_residues.getResnums())
+                matched_resnums = set([a[1] for a in motif_residue_IDs])
+                clashing_motif_resnums = clashing_resnums & matched_resnums
+                clashing_motif_resnums_count = len(clashing_motif_resnums)
 
             # Look up binding motif score in gurobi solutions
             current_conformer = '{}_{}'.format(pnc[5], pnc[6])
