@@ -309,7 +309,7 @@ class Filter_Matches:
 def residue_indicies_from_match_name(match_pdb_name):
     pnc = re.split('_|-|\.', os.path.basename(os.path.normpath(match_pdb_name)))
     motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
-    motif_residue_IDs = [motif_residue_ID_list[indx + 1] for indx in range(0, len(motif_residue_ID_list), 2)]
+    motif_residue_IDs = [int(motif_residue_ID_list[indx + 1]) for indx in range(0, len(motif_residue_ID_list), 2)]
     return motif_residue_IDs
 
 def selection_string_from_match_name(match_pdb_name):
@@ -425,8 +425,7 @@ if __name__ == '__main__':
             motif_residue_IDs = [(res_one_to_three[motif_residue_ID_list[indx]], motif_residue_ID_list[indx + 1]) for
                                  indx in range(0, len(motif_residue_ID_list), 2)]
 
-            # --- Validate PDB quality (HACKY BUT W/E IDGAF) --- #
-            # This is necessary when I forget to adjust memory allocations for submitted jobs on the cluster and things die unexpectedly...
+            # Validate PDB quality... (HACKY BUT W/E IDGAF)
             row_dict = {'match_name': matched_PDB,
                         'ligand_shell_eleven': 0,
                         'interface_CB_contact_percentage': 0,
@@ -435,8 +434,7 @@ if __name__ == '__main__':
                         'ligand_match_score': 9999,
                         'min_res_per_chain': 0,
                         'gurobi_motif_score': 0,
-                        'ligand_CB_clashes': 9999,
-                        'clashing_motifs': 9999
+                        'ligand_CB_clashes': 9999
                         }
 
             try:
@@ -453,7 +451,7 @@ if __name__ == '__main__':
                               match_prody.select('protein') is None,
                               len(match_prody.select('protein')) < 200,
                               match_prody.select('resname {}'.format(ligand)) is None,
-                              len(chains_in_dimer) != 2,
+                              chains_in_dimer != 2,
                               interface_cb is None,
                               match_prody.select('name CB within 6 of resname {}'.format(ligand)) is None
                               ]
@@ -524,8 +522,7 @@ if __name__ == '__main__':
                         'ligand_match_score': ligand_match_score,
                         'min_res_per_chain': min_res_per_chain,
                         'gurobi_motif_score': gurobi_score,
-                        'ligand_CB_clashes': ligand_CB_clashes,
-                        'clashing_motifs': clashing_motif_resnums_count
+                        'ligand_CB_clashes': ligand_CB_clashes
                         }
 
             return row_dict
@@ -576,9 +573,7 @@ if __name__ == '__main__':
 
     # Hard Cutoff filters
     # Accept anything up to value for each key
-    hard_cutoff_dict = {'ligand_CB_clashes': 1,
-                        'clashing_motifs': 0
-                        }
+    hard_cutoff_dict = {'ligand_CB_clashes': 1}
 
     # Residue Count Filter
     # Accept matches with specified number of residues
