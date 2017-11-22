@@ -4,7 +4,8 @@
 Filter matches for a given target compound using constraints generated with the BSFF package. 
 
 Usage:
-    match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> (single <match_sc_path> | consolidate) (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>] [--ideal_override]
+    match_filtering <ligand> <match_PDB_dir> <gurobi_solutions_dir> (single <match_sc_path> | consolidate) (<ideal_binding_site_dir> | fuzzballs <fuzzball_dir>) [--monomer] [--csv <csv_path>]
+    match_filtering <ligand> <match_PDB_dir> (single <match_sc_path> | consolidate) <ideal_binding_site_dir> [--monomer] [--csv <csv_path>] [--ideal_override]
 
 Arguments:     
     <ligand>
@@ -389,11 +390,13 @@ if __name__ == '__main__':
 
         # Consolidate gurobi solutions into a single dataframe for easy lookup
         # Pirated from motifs.Generate_Constraints
-        gurobi_solutions = pd.DataFrame(columns=['Obj_score', 'Residue_indicies', 'Conformer'])
 
-        for solution_set in os.listdir(args['<gurobi_solutions_dir>']):
-            temp_solution_df = pd.read_csv(os.path.join(args['<gurobi_solutions_dir>'], solution_set), usecols=['Obj_score', 'Residue_indicies', 'Conformer'])
-            gurobi_solutions = gurobi_solutions.append(temp_solution_df, ignore_index=True)
+        if args['<gurobi_solutions_dir>']:
+            gurobi_solutions = pd.DataFrame(columns=['Obj_score', 'Residue_indicies', 'Conformer'])
+
+            for solution_set in os.listdir(args['<gurobi_solutions_dir>']):
+                temp_solution_df = pd.read_csv(os.path.join(args['<gurobi_solutions_dir>'], solution_set), usecols=['Obj_score', 'Residue_indicies', 'Conformer'])
+                gurobi_solutions = gurobi_solutions.append(temp_solution_df, ignore_index=True)
 
         # Calculate stats for each matched PDB
         def evaluate_match(matched_PDB):
@@ -462,6 +465,8 @@ if __name__ == '__main__':
                 if match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) is None:
                     return row_dict
 
+            # --- Calculate Match Metrics --- #
+
             # Calculate number of CB atoms within 10A of ligand
             # Percentage of CB atoms in the protein-protein interface (based on an 8A° threshold) that are within 6A of any ligand atom
 
@@ -505,8 +510,10 @@ if __name__ == '__main__':
             current_conformer = '{}_{}'.format(pnc[5], pnc[6])
             index_list_string = '[1, {}]'.format(', '.join(motif_index_list))
 
-            gurobi_score_row = gurobi_solutions.loc[(gurobi_solutions['Residue_indicies'] == index_list_string) & (gurobi_solutions['Conformer'] == current_conformer)]
-            gurobi_score = gurobi_score_row['Obj_score'].iloc[0]
+            gurobi_score = 0
+            if args['<gurobi_solutions_dir>']:
+                gurobi_score_row = gurobi_solutions.loc[(gurobi_solutions['Residue_indicies'] == index_list_string) & (gurobi_solutions['Conformer'] == current_conformer)]
+                gurobi_score = gurobi_score_row['Obj_score'].iloc[0]
 
             # Aggragate results
             row_dict = {'match_name': matched_PDB,
