@@ -94,20 +94,21 @@ from gurobipy import *
 
 struct_id = int(sge_task_id + 1)
 
-#####################################
-# Check for command line arguements #
-#####################################
+#-- Check for command line arguements --#
 
 # Get motif count to solve for from command line
 motif_count = int(sys.argv[1])
 print('Solving for {0} residue binding motifs (including ligand)'.format(motif_count))
+
+include = sys.argv[2] == 'include'
+exclude = sys.argv[2] == 'exclude'
 
 # If second argument is passed, it needs to be a text file of previous matches
 # e.g. REN_0025-1_207_294_764_783
 if sys.argv[2]:
 
     # Use residues from previous solutions in next iteration of solutions
-    if sys.argv[2] == 'include':
+    if include:
         previous_match_list = [a for a in open(sys.argv[3], 'r')]
         print(previous_match_list)
 
@@ -127,15 +128,13 @@ if sys.argv[2]:
         print('Adding residue constraints to optimization: {0}'.format(residue_constraints))
 
     # Only use a subset of residues from fuzzball to solve for solutions
-    elif sys.argv[2] == 'exclude':
+    elif exclude:
         print('Only using a subset of fuzzball residues to generate solutions')
         include_position_resnumes = [int(a) for a in open(sys.argv[3], 'r')]
 
         print('Using resnums: {0}'.format(include_position_resnumes))
 
-#####################################################
-# Select pairwise scores for structid aka conformer #
-#####################################################
+#-- Select pairwise scores for structid aka conformer --#
 
 # Generate gurobi input table/csv
 connection = sqlite3.connect('two_body_terms.db')
@@ -183,29 +182,25 @@ for index, row in score_table.iterrows():
     if all([row['resNum1'] in MIP_residx_list, row['resNum2'] in MIP_residx_list]):
         score_dict[(row['resNum1'], row['resNum2'])] = row['score_total']
 
-##########################
-# Set objective function #
-##########################
+#-- Set objective function --#
 two_body_interactions = [MIP_var_dict[key[0]] * MIP_var_dict[key[1]] * value for key, value in score_dict.items()]
 residue_interactions.setObjective(quicksum(two_body_interactions), GRB.MINIMIZE)
 
-###################
-# Add constraints #
-###################
+#-- Add constraints --#
 
 # Always include ligand (residue 1)
 residue_interactions.addConstr(MIP_var_dict[float(1)] == 1)
 
 # Include residue constraints if sys.argv[2] exists
-if sys.argv[2] and sys.argv[2] == 'include':
+if sys.argv[2] and include:
     for residue_num in residue_constraints:
         residue_interactions.addConstr(MIP_var_dict[float(residue_num)] == 1)
 
 # Exclude residues not specified in posfile if posfile is provided
-if sys.argv[2] and sys.argv[2] == 'exclude':
+if sys.argv[2] and exclude:
     for resnum in MIP_residx_list:
         if resnum not in include_position_resnumes:
-            residue_interactions.addConstr(MIP_var_dict[float(residue_num)] == 0)
+            residue_interactions.addConstr(MIP_var_dict[float(resnum)] == 0)
 
 # Number of residues in a binding motif (includes ligand)
 residue_interactions.addConstr(quicksum(var for var in MIP_var_dict.values()) == motif_count)
@@ -231,9 +226,7 @@ residue_interactions.Params.Threads = 24
 # Optimize
 residue_interactions.optimize()
 
-######################
-# Retrieve solutions #
-######################
+#-- Retrieve solutions --#
 
 # Get residue-index mapping for current conformer
 index_mapping = pd.read_sql_query("SELECT * from residue_index_mapping WHERE struct_id = {0}".format(struct_id), connection, index_col='residue_index')
@@ -257,9 +250,11 @@ for i in range(residue_interactions.SolCount):
 
     # todo: reorder lists so previous match residue indicies are at the end
 
-    new_residues = sorted(list(set(res_index_tuple) - set(residue_constraints)))
+    if include:
+        new_residues = sorted(list(set(res_index_tuple) - set(residue_constraints)))
+        res_index_tuple = new_residues + residue_constraints
 
-    results_list.append({'Residue_indicies': new_residues + residue_constraints,
+    results_list.append({'Residue_indicies': res_index_tuple,
                          'Obj_score': non_ideal_solution,
                          'Conformer': '{}_{:0>4}'.format(compound_id, struct_id)})
 
