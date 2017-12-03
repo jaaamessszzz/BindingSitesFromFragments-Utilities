@@ -4,7 +4,7 @@
 Generate a list of argument lists for matcher cluster runs and export as json
 
 Usage:
-    matcher_argument_listgen (monomer|dimer|recover) <target_compound> <working_dir_name> <scaffold_file_path> <cst_dir> [-m][-g][-j]
+    matcher_argument_listgen (monomer|dimer|recover) <target_compound> <working_dir_name> <scaffold_file_path> ( <cst_dir> | iteration <gurobi_constraints_csv> <gurobi_iteration_solutions>) [-m][-g][-j]
 
 Arguments:
     monomer
@@ -43,6 +43,8 @@ import os
 import sys
 import json
 import docopt
+import pandas as pd
+from ast import literal_eval
 
 args = docopt.docopt(__doc__)
 
@@ -77,13 +79,6 @@ else:
     scaffold_path = os.path.join(working_dir_path, 'Recovery_Scaffolds')
     scaffold_pdb_path = os.path.join(scaffold_path, 'PDBs')
 
-# Get number of constraint files for target compound (local)
-number_of_cst_files = len(os.listdir(args['<cst_dir>']))
-
-# Get scaffold file names (local)
-scaffold_file = open(args['<scaffold_file_path>'], 'r')
-scaffold_file_list = [file_name.strip() for file_name in scaffold_file]
-
 ################################
 #   Construct Arguement List   #
 ################################
@@ -94,43 +89,82 @@ print(scaffold_pdb_path)
 # Start list of args
 argument_list = []
 
-for scaffold in scaffold_file_list:
-    for constraint in os.listdir(args['<cst_dir>']):
-        # Get current scaffold
-        current_scaffold_path = os.path.join(scaffold_pdb_path, scaffold)
+def add_arg_to_list(scaffold, constraint):
+    """
+    Add an arguement to the list
+    :return:
+    """
+    # Get current scaffold
+    current_scaffold_path = os.path.join(scaffold_pdb_path, scaffold)
 
-        # Get posfile and gridlig files for current scaffold
-        # todo: add check for compressed files
-        # [:-3] lazily removes .gz suffix
-        posfile_name = scaffold[:-3] + '.pos'
-        posfile_path = os.path.join(scaffold_path, 'posfiles', posfile_name)
+    # Get posfile and gridlig files for current scaffold
+    # todo: add check for compressed files
+    # [:-3] lazily removes .gz suffix
+    posfile_name = scaffold[:-3] + '.pos'
+    posfile_path = os.path.join(scaffold_path, 'posfiles', posfile_name)
 
-        gridlig_name = scaffold[:-3] + '.gridlig'
-        gridlig_path = os.path.join(scaffold_path, 'gridligs', gridlig_name)
+    gridlig_name = scaffold[:-3] + '.gridlig'
+    gridlig_path = os.path.join(scaffold_path, 'gridligs', gridlig_name)
 
-        # Get params file path
-        if args['--multiple_params']:
-            params_name = os.path.join('params', constraint.split('-')[0] + '.params')
-        else:
-            params_name = target_compound_code + '.params'
+    # Get params file path
+    if args['--multiple_params']:
+        params_name = os.path.join('params', constraint.split('-')[0] + '.params')
+    else:
+        params_name = target_compound_code + '.params'
 
-        params_path = os.path.join(target_compound_path, params_name)
+    params_path = os.path.join(target_compound_path, params_name)
 
-        # Output path
-        output_path = os.path.join(working_dir_path, 'matches')
+    # Output path
+    output_path = os.path.join(working_dir_path, 'matches')
 
-        arg = [current_scaffold_path,
-               target_compound_code,
-               posfile_path,
-               os.path.join(constraint_file_path, constraint),
-               params_path,
-               output_path
-               ]
+    arg = [current_scaffold_path,
+           target_compound_code,
+           posfile_path,
+           os.path.join(constraint_file_path, constraint),
+           params_path,
+           output_path
+           ]
 
-        if args['--add_gridlig']:
-            arg.append(gridlig_path)
+    if args['--add_gridlig']:
+        arg.append(gridlig_path)
 
-        argument_list.append(arg)
+    argument_list.append(arg)
+
+# Get scaffold file names (local)
+if args['<scaffold_file_path>']:
+    scaffold_file = open(args['<scaffold_file_path>'], 'r')
+    scaffold_file_list = [file_name.strip() for file_name in scaffold_file]
+
+# Lazy
+if args['iteration']:
+    scaffold_csv = pd.read_csv(args['<gurobi_constraints_csv>'])
+    gurobi_iteration_solutions_dir = args['<gurobi_iteration_solutions>']
+    gurobi_iteration_solutions = [solution for solution in os.listdir(gurobi_iteration_solutions_dir) if solution.endswith('.csv')]
+
+    relevant_scaffolds = [scaffold for scaffold in scaffold_file_list if any([pdb in scaffold for pdb in scaffold_csv['scaffold'].values])]
+
+    for index, row in scaffold_csv.iterrows():
+        current_solution_set = [a for a in gurobi_iteration_solutions if row['constraint'] in a]
+        assert len(current_solution_set) == 1
+
+        current_solution_csv = pd.read_csv(os.path.join(gurobi_iteration_solutions_dir, current_solution_set[0]), usecols=['Conformer', 'Obj_score', 'Residue_indicies'])
+        current_scaffolds = [scaffold for scaffold in relevant_scaffolds if row['scaffold'] in scaffold]
+
+        for scaffold in current_scaffolds:
+            for index, row in current_solution_csv.iterrows():
+                residue_index_list = literal_eval(row['Residue_indicies'])
+                constraint_filename = "{}-{}.cst".format(row['Conformer'], '_'.join([str(a) for a in residue_index_list]))
+                add_arg_to_list(scaffold, constraint_filename)
+
+else:
+    for scaffold in scaffold_file_list:
+        for constraint in os.listdir(args['<cst_dir>']):
+            add_arg_to_list(scaffold, constraint)
+
+##############################
+#   Dump Arguments as JSON   #
+##############################
+print("Generated {} constraints".format(len(argument_list)))
 
 with open('matcher_argument_list.json', 'w') as arg_list:
     json.dump(argument_list, arg_list)
