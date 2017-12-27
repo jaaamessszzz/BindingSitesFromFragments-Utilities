@@ -38,11 +38,11 @@
     </FILTERS>
 
     <MOVERS>
-        <HBNet name="hbnet_mover" scorefxn="sfxn" hb_threshold="-0.5" min_network_size="5" max_unsat="1" write_network_pdbs="1"
+        <HBNet name="hbnet_mover" scorefxn="sfxn" hb_threshold="-0.5" min_network_size="5" max_unsat="0" write_network_pdbs="0"
                task_operations="no_design_or_pack,fixlig,init" start_selector="motif_residues" use_only_input_rot_for_start_res="True"
-               monte_carlo_branch="true" max_mc_nets="100" total_num_mc_runs="10000000"/>
+               monte_carlo_branch="true" max_mc_nets="20" total_num_mc_runs="10000000"/>
         <MultiplePoseMover name="MPM_design" max_input_poses="10">
-            <xi:include href="FastDesign.xml"/>
+            <xi:include href="Design_Template.xml"/>
         </MultiplePoseMover>
     </MOVERS>
 

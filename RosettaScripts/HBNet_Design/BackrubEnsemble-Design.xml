@@ -1,0 +1,22 @@
+<!--Sequence tolerance with backrub ensemble where fixbb is applied to each member (~100)-->
+<!--Probably best if the ensemble was generated beforehand, then the design run would block-->
+<MOVERS>
+
+    <!--Fixbb-->
+    <PackRotamersMover name="fixbb" scorefxn="sfxn_cst" task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>
+
+    <!--Design Protocol that is passed to GenericMonteCarlo-->
+    <ParsedProtocol name="design_protocol" mode="sequence">
+        <Add mover_name="fixbb"/>
+        <Add filter_name="interfE"/>
+        <Add filter_name="Lig_ShapeC"/>
+        <Add filter_name="packstat"/>
+        <Add filter_name="buried_unsat"/>
+        <Add filter_name="repack_without_ligand"/>
+        <Add filter_name="rosettaholes"/>
+    </ParsedProtocol>
+</MOVERS>
+
+<PROTOCOLS>
+    <Add mover_name="design_protocol"/>
+</PROTOCOLS>

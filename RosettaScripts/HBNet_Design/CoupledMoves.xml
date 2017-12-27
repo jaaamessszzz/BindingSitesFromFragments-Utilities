@@ -1,0 +1,21 @@
+<MOVERS>
+    <!--Coupled Moves-->
+    <CoupledMovesProtocol name="CoupledMoves" scorefxn="sfxn_cst"
+                          task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG">
+    </CoupledMovesProtocol>
+
+    <!--Design Protocol-->
+    <ParsedProtocol name="design_protocol" mode="sequence">
+        <Add mover_name="CoupledMoves"/>
+        <Add filter_name="interfE"/>
+        <Add filter_name="Lig_ShapeC"/>
+        <Add filter_name="packstat"/>
+        <Add filter_name="buried_unsat"/>
+        <Add filter_name="repack_without_ligand"/>
+        <Add filter_name="rosettaholes"/>
+    </ParsedProtocol>
+</MOVERS>
+
+<PROTOCOLS>
+    <Add mover_name="design_protocol"/>
+</PROTOCOLS>

@@ -1,116 +1,29 @@
-<ROSETTASCRIPTS>
+<MOVERS>
+    <!--Fast Design-->
+    <FastDesign name="FastDesign" scorefxn="sfxn_cst" clear_designable_residues="False" ramp_down_constraints="False"
+                task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG">
+    </FastDesign>
 
-    <SCOREFXNS>
-        <ScoreFunction name="sfxn" weights="ref2015"/>
-        <ScoreFunction name="sfxn_cst" weights="ref2015_cst"/>
-    </SCOREFXNS>
+    <!--RotamerTrials-->
+    <RotamerTrialsMover name="RotamerTrials" scorefxn="sfxn_cst" task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>
 
-    <RESIDUE_SELECTORS>
-        <!--Select Ligand-->
-        <Chain name="ligand" chains="X"/>
+    <!--Design Protocol-->
+    <ParsedProtocol name="design_protocol" mode="sequence">
+        <Add mover_name="FastDesign"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="FastDesign"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add filter_name="interfE"/>
+        <Add filter_name="Lig_ShapeC"/>
+        <Add filter_name="packstat"/>
+        <Add filter_name="buried_unsat"/>
+        <Add filter_name="repack_without_ligand"/>
+        <Add filter_name="rosettaholes"/>
+    </ParsedProtocol>
+</MOVERS>
 
-        <!--Select residues built in by HBNet-->
-        <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
-
-        <!--Indicies for matched motif residues, pass in from command line -->
-        <Index name="motif_residues" resnums="%%motif_residues%%"/>
-
-        <!--Motif residues and HBNet residues-->
-        <Or name="motif_and_HBNet" selectors="motif_residues,hbnet_residues"/>
-
-        <!--Select all residues that will be designed-->
-        <Index name="designed" resnums="%%design_positions%%"/>
-        
-        <!--Select all residues that aren't in design/pack positions-->
-        <Not name="not_packable_positions" selector="designed"/>
-        
-    </RESIDUE_SELECTORS>
-
-    <TASKOPERATIONS>
-        <!--Get flags from command line: -use_input_sc -flip_HNQ, -no_optH false -->
-        <InitializeFromCommandline name="init"/>
-
-        <!--Set HBNet residues to repack only, allows wiggle room within constraint tolerances-->
-        <OperateOnResidueSubset name="hbnet_task" selector="hbnet_residues">
-           <RestrictToRepackingRLT/>
-        </OperateOnResidueSubset>
-
-        <!--Set motif residues to no repack or design-->
-        <OperateOnResidueSubset name="motif_task" selector="motif_residues">
-           <PreventRepackingRLT/>
-        </OperateOnResidueSubset>
-
-        <!--Set ligand to no repack or design-->
-        <OperateOnResidueSubset name="fixlig" selector="ligand">
-            <PreventRepackingRLT/>
-        </OperateOnResidueSubset>
-        
-        <!--Set non-designed positions to no repack or design-->
-        <OperateOnResidueSubset name="NATRO_positions" selector="not_packable_positions">
-            <PreventRepackingRLT/>
-        </OperateOnResidueSubset>
-        
-        <!--Go HAM on extra rotamers-->
-        <ExtraRotamersGeneric name="extra_rots" ex1="True" ex2="True" ex3="True" ex1_sample_level="1" ex2_sample_level="1"
-                              ex3_sample_level="1" extrachi_cutoff="0"/>
-        
-        <!--Include current rotamers in packer-->
-        <IncludeCurrent name="ic" />
-        
-        <!--Restrict design to non-PG-->
-        <OperateOnResidueSubset name="no_PG" selector="designed">
-            <RestrictAbsentCanonicalAASRLT aas="ACDEFHIKLMNQRSTVWY"/>
-        </OperateOnResidueSubset>
-    </TASKOPERATIONS>
-
-    <FILTERS>
-        <!--Filter out designs where ligand-protein interaction energy is more than 0-->
-        <LigInterfaceEnergy name="interfE" scorefxn="sfxn" energy_cutoff="0.0" confidence="1" />
-        <!--Filter out designs where % shape complentarity with ligand is less thn 0.75-->
-        <ShapeComplementarity name="Lig_ShapeC" min_sc="0.75" min_interface="0" verbose="0" quick="0" jump="1" confidence="1"/>
-        <!--Packing statistics-->
-        <PackStat name="packstat" threshold="0.65" chain="0" repeats="1"/>
-        <!--Buried unsat h-bonds... going with the defaults here-->
-        <BuriedUnsatHbonds name="buried_unsat" scorefxn="sfxn_cst" jump_number="1" cutoff="20"/>
-
-        <!--Rosetta Holes (wtf is the -holes:dalphaball flag?!)-->
-        <!--<Holes name="rosettaholes" threshold="1" confidence="0"/>-->
-    </FILTERS>
-
-    <MOVERS>
-        <!--Fast Design-->
-        <FastDesign name="FastDesign" scorefxn="sfxn_cst" clear_designable_residues="False" ramp_down_constraints="False"
-                    repeats="2" task_operations="ic,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG">
-        </FastDesign>
-        <!--RotamerTrials-->
-        <RotamerTrialsMover name="RotamerTrials" scorefxn="sfxn_cst"/>
-        <!--Design Protocol that is passed to GenericMonteCarlo-->
-        <ParsedProtocol name="design_protocol" mode="sequence">
-            <Add mover_name="FastDesign"/>
-            <Add mover_name="RotamerTrials"/>
-            <Add mover_name="FastDesign"/>
-            <Add mover_name="RotamerTrials"/>
-            <Add mover_name="FastDesign"/>
-            <Add mover_name="RotamerTrials"/>
-            <Add mover_name="RotamerTrials"/>
-            <Add mover_name="RotamerTrials"/>
-        </ParsedProtocol>
-
-        <!--Generic MC... It seems like this is just a filtering step without drift=True?-->
-        <GenericMonteCarlo name="GM_design" mover_name="design_protocol" filter_name="interfE" trials="1" progress_file="MC_progess_design.txt"
-                           bolz_rank="True" recover_low="True" preapply="False" drift="False" sample_type="low" temperature="0.03">
-            <Filters>
-                <AND filter_name="interfE" sample_type="low" temperature="1"/>
-                <AND filter_name="Lig_ShapeC" sample_type="high" temperature="0.1"/>
-                <AND filter_name="packstat" sample_type="high" temperature="0.1"/>
-                <AND filter_name="buried_unsat" sample_type="high" temperature="0.1"/>
-                <!--<AND filter_name="rosettaholes" sample_type="high" temperature="0.1"/>-->
-            </Filters>
-        </GenericMonteCarlo>
-    </MOVERS>
-
-    <PROTOCOLS>
-        <Add mover_name="GM_design"/>
-    </PROTOCOLS>
-
-</ROSETTASCRIPTS>
+<PROTOCOLS>
+    <Add mover_name="design_protocol"/>
+</PROTOCOLS>

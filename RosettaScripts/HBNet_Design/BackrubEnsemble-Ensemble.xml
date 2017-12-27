@@ -1,0 +1,30 @@
+<!--Sequence tolerance with backrub ensemble where fixbb is applied to each member (~100)-->
+<!--Generates backrub ensemble that will ultimately be used for design-->
+<!--Backrub pivot residue position logic taken from Kyle's FlexDDG protocol-->
+<RESIDUE_SELECTORS>
+    <PrimarySequenceNeighborhood name="bubble_adjacent" selector="designed" lower="1" upper="1"/>
+    <StoredResidueSubset name="restore_neighbor_shell" subset_name="neighbor_shell"/>
+    <Not name="everythingelse" selector="restore_neighbor_shell"/>
+</RESIDUE_SELECTORS>
+
+<TASKOPERATIONS>
+    <OperateOnResidueSubset name="repackonly" selector="restore_neighbor_shell">
+        <RestrictToRepackingRLT/>
+    </OperateOnResidueSubset>
+
+    <OperateOnResidueSubset name="norepack" selector="everythingelse">
+        <PreventRepackingRLT/>
+    </OperateOnResidueSubset>
+</TASKOPERATIONS>
+
+<MOVERS>
+    <StoreResidueSubset name="neighbor_shell_storer" subset_name="neighbor_shell" residue_selector="bubble_adjacent" />
+    <!--BackrubProtocol-->
+    <BackrubProtocol name="backrub" pivot_residue_selector="restore_neighbor_shell"
+        task_operations="ic,extra_rots,fixlig,repackonly,norepack,init"
+        mc_kt="1.2" ntrials="25000" trajectory="0" trajectory_gz="0" recover_low="0"/>
+</MOVERS>
+
+<PROTOCOLS>
+    <Add mover_name="backrub"/>
+</PROTOCOLS>

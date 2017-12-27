@@ -1,0 +1,18 @@
+<FILTERS>
+    <!--Filter out designs where ligand-protein interaction energy is more than 0-->
+    <LigInterfaceEnergy name="interfE" scorefxn="sfxn" energy_cutoff="0.0" confidence="0" />
+    <!--Filter out designs where % shape complentarity with ligand is less thn 0.75-->
+    <ShapeComplementarity name="Lig_ShapeC" min_sc="0.75" min_interface="0" verbose="0" quick="0" jump="1" confidence="0"/>
+    <!--Packing statistics-->
+    <PackStat name="packstat" threshold="0.65" chain="0" repeats="1" confidence="0.0"/>
+    <!--Buried unsat h-bonds... going with the defaults here-->
+    <BuriedUnsatHbonds name="buried_unsat" scorefxn="sfxn_cst" jump_number="1" cutoff="20" confidence="0.0"/>
+    <!--Rosetta Holes-->
+    <Holes name="rosettaholes" threshold="1" confidence="0"/>
+    <!--Repack without ligand-->
+    <RepackWithoutLigand name="repack_without_ligand"  scorefxn="sfxn_cst" target_res="all_repacked" rms_threshold="10" confidence="0"/>
+
+    <!--New buriedunsat (ask scott/jack, nvm devel only atm)-->
+    <!--Frag quality filter (ask cody, nvm still buggy and not in main)-->
+
+</FILTERS>
