@@ -104,13 +104,14 @@ arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgc
        '-parser:protocol',
        'Design_Template.xml',
        # '-use_input_sc',
-       # '-flip_HNQ',
-       # '-no_optH',
-       # 'false',
+       '-flip_HNQ',
+       '-no_optH',
+       'false',
        '-holes:dalphaball', # Required for RosettaHoles Filter
        '/netapp/home/james.lucas/Rosetta/main/source/external/DAlpahBall/DAlphaBall.gcc', # Full path to DAlphaBall.gcc on chef
+       '-relax:constrain_relax_to_start_coords', # FastRelax - constrain to start coords
        '-out:prefix',
-       '{0}-'.format(sge_task_id + 1),
+       './BackrubEnsemble/{0}-'.format(sge_task_id + 1),
        '-out:no_nstruct_label',
        'True',
        '-parser:script_vars',
