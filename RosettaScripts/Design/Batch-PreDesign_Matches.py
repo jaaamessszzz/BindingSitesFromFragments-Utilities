@@ -53,7 +53,7 @@ for pdb in os.listdir(cwd):
         # The logic being that if the directory exists, something was already submitted
         # Else, just delete/rename the existing directory and run this again
         if not os.path.exists(design_path):
-            os.makedirs(design_path, exist_ok=True)
+            os.makedirs(design_path)
         else:
             print('\n\n'
                   'Skipping {0} - directory exists!\n'
@@ -65,9 +65,10 @@ for pdb in os.listdir(cwd):
         move_file_to_design_dir('Design_Template.xml', design_path)
 
         # Replace "%%design_xml%%" in Design_Template.xml with correct XML
-        with fileinput.FileInput(os.path.join(design_path, 'Design_Template.xml'), inplace=True) as template_xml:
-            for line in template_xml:
-                line.replace('%%design_xml%%', current_xml)
+        template_xml = fileinput.FileInput(os.path.join(design_path, 'Design_Template.xml'), inplace=True)
+        for line in template_xml:
+            print(line.replace('%%design_xml%%', current_xml), end='')
+        template_xml.close()
 
         # Move submission script into design directory
         current_submit_script = 'Submit-Preparation-{0}.py'.format(current_xml.split('.')[0])
@@ -82,10 +83,10 @@ for pdb in os.listdir(cwd):
 
         args = ['qsub',
                 current_submit_script,
-                pdb,
+                os.path.join(compound_dir, 'Design', pdb),
                 os.path.join(params_dir, '{0}.params'.format(params_file)),
-                '../{0}-design_inputs.json'.format(pdb.split('.')[0]),
-                5 # Designs per task
+                '../../{0}-design_inputs.json'.format(pdb.split('.')[0]),
+                '5' # Designs per task
                 ]
         print(args)
 

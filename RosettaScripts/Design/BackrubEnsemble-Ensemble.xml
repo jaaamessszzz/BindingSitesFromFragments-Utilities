@@ -1,6 +1,6 @@
 <!--Sequence tolerance with backrub ensemble where fixbb is applied to each member (~100)-->
 <!--Generates backrub ensemble that will ultimately be used for design-->
-<!--Backrub pivot residue position logic taken from Kyle's FlexDDG protocol-->
+<!--Backrub pivot residue position logic and minimize taken from Kyle's FlexDDG protocol-->
 <RESIDUE_SELECTORS>
     <PrimarySequenceNeighborhood name="bubble_adjacent" selector="designed" lower="1" upper="1"/>
     <StoredResidueSubset name="restore_neighbor_shell" subset_name="neighbor_shell"/>
@@ -18,6 +18,9 @@
 </TASKOPERATIONS>
 
 <MOVERS>
+    <!--Fastrelax, make sure -relax:constrain_relax_to_start_coords is pass in cmd line!!!-->
+    <FastRelax name="fastrelax" scorefxn="sfxn_cst" task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>
+
     <StoreResidueSubset name="neighbor_shell_storer" subset_name="neighbor_shell" residue_selector="bubble_adjacent" />
     <!--BackrubProtocol-->
     <BackrubProtocol name="backrub" pivot_residue_selector="restore_neighbor_shell"
@@ -26,5 +29,7 @@
 </MOVERS>
 
 <PROTOCOLS>
+    <Add mover_name="minimize"/>
+    <Add mover_name="neighbor_shell_storer"/>
     <Add mover_name="backrub"/>
 </PROTOCOLS>

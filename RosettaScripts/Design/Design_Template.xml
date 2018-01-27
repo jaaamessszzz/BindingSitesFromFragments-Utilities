@@ -63,8 +63,8 @@
         </OperateOnResidueSubset>
     </TASKOPERATIONS>
 
-    <xi:include href="Filters.xml"/>
+    <xi:include href="../../Filters.xml"/>
 
-    <xi:include href="%%design_xml%%"/>
+    <xi:include href="../../%%design_xml%%"/>
 
 </ROSETTASCRIPTS>
