@@ -5,7 +5,7 @@ Filter designs based on... stuff. Same idea as the match filtering script, popul
 each design that I can use to rank the best designs.
 
 Usage:
-    design_filtering <design_PDB_dir>  <target_designs> [<score_term>...] [--fill_quota]
+    design_filtering <design_PDB_dir>  <target_designs> [<score_term>...] [--fill_quota] [--unique]
 
 Arguments:
     <design_PDB_dir>
@@ -21,6 +21,9 @@ Options:
 
     --fill_quota -f
         Keep filtering designs until
+
+    --unique -u
+        Return unique sequences only
 
 """
 import os
@@ -45,9 +48,10 @@ class FilterDesigns():
         self.designs_to_return = designs_to_return
         self.processed_files = set()
         self.skipped_files = set()
+        self.returned_sequences = set()
         self.unique_sequences = set()
 
-    def copy_designs(self, design_list, directory_name='Fresh_Designs'):
+    def copy_designs(self, design_list, directory_name='Fresh_Designs', unique_only=False):
         """
         Copies the specified PDBs to new directory
 
@@ -68,21 +72,26 @@ class FilterDesigns():
             if directory_name not in dir_path:
                 files_to_transfer = set(file_name) & set(design_list)
 
-                for file in files_to_transfer:
-                    # Unique sequence check
-                    hv = prody.parsePDB(os.path.join(dir_path, file)).getHierView()
-                    seq_tuple = tuple([chain.getSequence(allres=True) for chain in hv])
+                if unique_only:
+                    for file in files_to_transfer:
+                        # Unique sequence check
+                        hv = prody.parsePDB(os.path.join(dir_path, file)).getHierView()
+                        seq_tuple = tuple([chain.getSequence(allres=True) for chain in hv])
 
-                    # If PDB sequence is unique, copy to dst
-                    if seq_tuple not in self.unique_sequences:
-                        self.unique_sequences.add(seq_tuple)
+                        # If PDB sequence is unique, copy to dst
+                        if seq_tuple not in self.unique_sequences:
+                            self.unique_sequences.add(seq_tuple)
+                            shutil.copy2(os.path.join(dir_path, file), dst_dir)
+                            current_designs_processed.add(file)
+                        else:
+                            current_designs_skipped.add(file)
+                            print('{0} skipped: PDB with identical sequence already identified'.format(file))
+                        if len(self.unique_sequences) == self.designs_to_return:
+                            break
+                else:
+                    for file in files_to_transfer:
                         shutil.copy2(os.path.join(dir_path, file), dst_dir)
                         current_designs_processed.add(file)
-                    else:
-                        current_designs_skipped.add(file)
-                        print('{0} skipped: PDB with identical sequence already identified'.format(file))
-                    if len(self.unique_sequences) == self.designs_to_return:
-                        break
 
         # Report what files are missing
         missing_files = set(design_list) - (current_designs_processed | current_designs_skipped)
@@ -219,16 +228,17 @@ if __name__ == '__main__':
     filter_score_terms = args['<score_term>']
     target_design_number = int(args['<target_designs>'])
     fill_quota = args['--fill_quota']
+    return_unique_only = args['--unique']
 
     filter_designs = FilterDesigns(input_design_dir, target_design_number)
 
     if fill_quota:
         while len(filter_designs.unique_sequences) < target_design_number and len(filter_designs.processed_files) < len(filter_designs.df):
             design_list = filter_designs.get_best_designs(filter_score_terms)
-            filter_designs.copy_designs(design_list)
+            filter_designs.copy_designs(design_list, unique_only=return_unique_only)
             print('\n\n{0} unique designs have been found so far...\n\n'.format(len(filter_designs.unique_sequences)))
         print('\n\n{0} designs have been evaluated to return {1} unique designs!\n\n'.format(len(filter_designs.processed_files), len(filter_designs.unique_sequences)))
 
     else:
         design_list = filter_designs.get_best_designs(filter_score_terms, target_design_number)
-        filter_designs.copy_designs(design_list)
+        filter_designs.copy_designs(design_list, unique_only=return_unique_only)
