@@ -15,7 +15,7 @@
             <Index resnums="%%design_positions%%" />
         </Not>
         <!--Select all residues that will not be designed-->
-        <Or name="not_designed" selectors="motif_residues,outside_design_shell"/>
+        <Or name="not_designed" selectors="outside_design_shell"/>
     </RESIDUE_SELECTORS>
 
     <TASKOPERATIONS>
@@ -30,17 +30,18 @@
             <PreventRepackingRLT/>
         </OperateOnResidueSubset>
         <!--Go HAM on extra rotamers-->
-        <ExtraRotamersGeneric name="extra_rots" ex1="True" ex2="True" ex3="True" ex1_sample_level="1" ex2_sample_level="1"
-                              ex3_sample_level="1" extrachi_cutoff="0"/>
+        <ExtraRotamersGeneric name="extra_rots" ex1="True" ex2="True" ex1_sample_level="1" ex2_sample_level="1" extrachi_cutoff="0"/>
     </TASKOPERATIONS>
 
     <FILTERS>
     </FILTERS>
 
     <MOVERS>
-        <HBNet name="hbnet_mover" scorefxn="sfxn" hb_threshold="-0.5" min_network_size="5" max_unsat="0" write_network_pdbs="0"
-               task_operations="no_design_or_pack,fixlig,init" start_selector="motif_residues" use_only_input_rot_for_start_res="True"
-               monte_carlo_branch="true" max_mc_nets="20" total_num_mc_runs="10000000"/>
+        <HBNet name="hbnet_mover" scorefxn="sfxn" hb_threshold="-0.5" min_network_size="5" max_unsat_Hpol="0" write_network_pdbs="0"
+               task_operations="extra_rots,no_design_or_pack,fixlig,init" start_selector="motif_residues"
+               monte_carlo="true" max_mc_nets="20" total_num_mc_runs="10000000"/>
+        <!--keep_start_selector_rotamers_fixed="True"-->
+        <!--use_only_input_rot_for_start_res="True"-->
         <MultiplePoseMover name="MPM_design" max_input_poses="10">
             <xi:include href="Design_Template.xml"/>
         </MultiplePoseMover>

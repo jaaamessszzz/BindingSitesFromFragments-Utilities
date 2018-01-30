@@ -6,7 +6,7 @@
     <!--Packing statistics-->
     <PackStat name="packstat" threshold="0.65" chain="0" repeats="1" confidence="0.0"/>
     <!--Buried unsat h-bonds... going with the defaults here-->
-    <BuriedUnsatHbonds name="buried_unsat" scorefxn="sfxn_cst" jump_number="1" cutoff="20" confidence="0.0"/>
+    <BuriedUnsatHbonds name="buried_unsat" scorefxn="sfxn_cst" print_out_info_to_pdb="True" cutoff="20" residue_selector="relevant_positions" confidence="0.0"/>
     <!--Rosetta Holes-->
     <Holes name="rosettaholes" threshold="1" confidence="0"/>
     <!--Repack without ligand-->

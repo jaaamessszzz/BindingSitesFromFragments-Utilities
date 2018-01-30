@@ -4,11 +4,11 @@
 #$ -r yes
 #$ -l h_rt=240:00:00
 #$ -t 1-1000
+#$ -j y
 #$ -l arch=linux-x64
-#$ -l mem_free=10G
-#$ -l netapp=8G,scratch=2G
+#$ -l mem_free=15G
+#$ -l netapp=5G,scratch=1G
 
-# *** qsub from compound project directory *** #
 # Make sure you set task number above to be correct!!!
 
 import socket
@@ -79,6 +79,10 @@ current_arg_block = matcher_arg_json[(sge_task_id * block_size):((sge_task_id + 
 bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
 target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
 
+# Make directory for each job and switch into it... this is to prevent multiple simultaneous writes to matcher_score.sc
+os.mkdir('taskid-{0}'.format(sge_task_id + 1))
+os.chdir('taskid-{0}'.format(sge_task_id + 1))
+
 for block in current_arg_block:
     time_start = roundTime()
     print('Starting time:', time_start)
@@ -116,7 +120,7 @@ for block in current_arg_block:
            'PDB',
            '-out:file:scorefile', # match scores
            '-match_grouper',
-           'SameSequenceGrouper', # Two matches belong in the same group if their hits come from the same amino acds at the same scaffold build positions
+           'SameSequenceGrouper', # Two matches belong in the same group if their hits come from the same amino acids at the same scaffold build positions
            '-mute',
            'protocols.idealize']
 
@@ -127,9 +131,9 @@ for block in current_arg_block:
     print(' '.join(arg))
 
     scaffold = os.path.basename(os.path.normpath(block[0])).split('.')[0]
-    constraint = os.path.basename(os.path.normpath(block[4])).split('.')[0]
+    constraint = os.path.basename(os.path.normpath(block[3])).split('.')[0]
 
-    outfile_path = os.path.join(os.path.split(block[6])[0], 'stdout', '{0}-{1}.out'.format(scaffold, constraint))
+    outfile_path = os.path.join(os.path.split(block[5])[0], 'stdout', '{0}-{1}.out'.format(scaffold, constraint))
     rosetta_outfile = open(outfile_path, 'w')
     rosetta_process = subprocess.Popen(arg, stdout=rosetta_outfile, cwd=os.getcwd())
     return_code = rosetta_process.wait()

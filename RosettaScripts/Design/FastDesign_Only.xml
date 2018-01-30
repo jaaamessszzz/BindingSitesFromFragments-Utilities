@@ -1,11 +1,11 @@
 <MOVERS>
     <!--Fast Design-->
     <FastDesign name="FastDesign" scorefxn="sfxn_cst" clear_designable_residues="False" ramp_down_constraints="False"
-                task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG">
+                task_operations="ic,extra_rots,limitAroChi,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG">
     </FastDesign>
 
     <!--RotamerTrials-->
-    <RotamerTrialsMover name="RotamerTrials" scorefxn="sfxn_cst" task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>
+    <RotamerTrialsMover name="RotamerTrials" scorefxn="sfxn_cst" task_operations="ic,extra_rots,limitAroChi,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>
 
     <!--Design Protocol-->
     <ParsedProtocol name="design_protocol" mode="sequence">

@@ -19,17 +19,18 @@
 
 <MOVERS>
     <!--Fastrelax, make sure -relax:constrain_relax_to_start_coords is pass in cmd line!!!-->
-    <FastRelax name="fastrelax" scorefxn="sfxn_cst" task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>
+    <!--<FastRelax name="fastrelax" scorefxn="sfxn_cst" task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>-->
 
     <StoreResidueSubset name="neighbor_shell_storer" subset_name="neighbor_shell" residue_selector="bubble_adjacent" />
+
     <!--BackrubProtocol-->
     <BackrubProtocol name="backrub" pivot_residue_selector="restore_neighbor_shell"
-        task_operations="ic,extra_rots,fixlig,repackonly,norepack,init"
+        task_operations="ic,extra_rots,fixlig,repackonly,norepack,motif_task,init"
         mc_kt="1.2" ntrials="25000" trajectory="0" trajectory_gz="0" recover_low="0"/>
+
 </MOVERS>
 
 <PROTOCOLS>
-    <Add mover_name="minimize"/>
     <Add mover_name="neighbor_shell_storer"/>
     <Add mover_name="backrub"/>
 </PROTOCOLS>

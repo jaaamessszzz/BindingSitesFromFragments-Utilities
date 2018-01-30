@@ -211,7 +211,7 @@ class Filter_Matches:
         :param ideal_name: name of ideal binding site PDB to be retireved from preloaded dict
         :return: 
         """
-        ligand_match_score_only = 9999
+        ligand_match_score = 9999
         residue_match_score = 9999
 
         if not ligand_match_score_only:
@@ -386,7 +386,7 @@ if __name__ == '__main__':
                         motif_pdb_filename = '{}-{}.pdb'.format(conformer_name, '1_' + '_'.join([str(a) for a in constraint_resnums]))
                         prody.writePDB(os.path.join(ideal_bs_dir, motif_pdb_filename), current_binding_motif)
 
-            filter.ideal_bs_dict = filter._import_ideal_binding_sites()
+        filter.ideal_bs_dict = filter._import_ideal_binding_sites()
 
         # Consolidate gurobi solutions into a single dataframe for easy lookup
         # Pirated from motifs.Generate_Constraints
@@ -474,7 +474,7 @@ if __name__ == '__main__':
             # Calculate match score as defined by Roland
             # Calculate RMSD to ideal binding site  (side chains only, not ligand)
 
-            if args['<ideal_binding_site_dir>']:
+            if args['<ideal_binding_site_dir>'] or args['fuzzballs']:
                 residue_match_score, ligand_match_score = filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs, match_name)
             else:
                 residue_match_score, ligand_match_score = filter.calculate_rmsd_stats(match_prody, ideal_binding_site_name, motif_residue_IDs, match_name, ligand_match_score_only=True)
@@ -570,9 +570,6 @@ if __name__ == '__main__':
                       # 'min_res_per_chain': True # Not necessary if iterating to build full binding sites
                       # 'gurobi_motif_score': True # I don't think we will want to filter based on motif scores...
                       }
-
-    # TEMP
-    ascending_dict = {}
 
     # Hard Cutoff filters
     # Accept anything up to value for each key

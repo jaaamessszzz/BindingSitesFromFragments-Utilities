@@ -21,6 +21,9 @@
         <!--Select all residues that will be designed-->
         <Index name="designed" resnums="%%design_positions%%"/>
 
+        <!--All positions I really care about...-->
+        <Or name="relevant_positions" selectors="motif_and_HBNet,designed"/>
+
         <!--Select all residues that aren't in design/pack positions-->
         <Not name="not_packable_positions" selector="designed"/>
 
@@ -50,9 +53,13 @@
             <PreventRepackingRLT/>
         </OperateOnResidueSubset>
 
+        <!--LimitAroChi-->
+        <LimitAromaChi2 include_trp="true" name="limitAroChi" />
+
         <!--Go HAM on extra rotamers-->
-        <ExtraRotamersGeneric name="extra_rots" ex1="True" ex2="True" ex3="True" ex1_sample_level="1" ex2_sample_level="1"
-                              ex3_sample_level="1" extrachi_cutoff="0"/>
+        <ExtraRotamersGeneric name="extra_rots" ex1="True" ex2="True"  ex1_sample_level="1" ex2_sample_level="1"
+                              ex1aro="1" ex1aro_sample_level="1" extrachi_cutoff="0"/>
+        <!--ex3="True" ex3_sample_level="2" ex2aro="1" ex2aro_sample_level="2"-->
 
         <!--Include current rotamers in packer-->
         <IncludeCurrent name="ic" />

@@ -240,5 +240,5 @@ if __name__ == '__main__':
         print('\n\n{0} designs have been evaluated to return {1} unique designs!\n\n'.format(len(filter_designs.processed_files), len(filter_designs.unique_sequences)))
 
     else:
-        design_list = filter_designs.get_best_designs(filter_score_terms, target_design_number)
+        design_list = filter_designs.get_best_designs(filter_score_terms)
         filter_designs.copy_designs(design_list, unique_only=return_unique_only)

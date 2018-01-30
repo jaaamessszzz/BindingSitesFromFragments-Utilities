@@ -4,9 +4,9 @@
 #$ -R yes
 #$ -j yes
 #$ -l h_rt=240:00:00
-#$ -t 1-50
+#$ -t 1-2000
 #$ -l arch=linux-x64
-#$ -l mem_free=5G
+#$ -l mem_free=20G
 #$ -l netapp=1G,scratch=1G
 
 import socket
@@ -74,12 +74,12 @@ print('Task id:', sge_task_id)
 # Positional arguments #
 ########################
 
-input_dir = sys.argv[1]
+input_pdb_dir = sys.argv[1]
 params_file_path = sys.argv[2]
 design_json_path = sys.argv[3]
-nstruct = sys.argv[4]
+designs_per_task = sys.argv[4]
 
-input_pdb_base = os.path.basename(os.path.normpath(input_dir))
+input_pdb_base = os.path.basename(os.path.normpath(input_pdb_dir))
 design_json = json.load(open(design_json_path, 'r'))
 
 ##########################
@@ -95,14 +95,15 @@ print(params_file_path)
 print(design_json)
 print(','.join([str(a) for a in design_json['design_residue_list']]))
 
-input_pdb = [pdb for pdb in os.listdir(input_dir) if pdb.endswith('.pdb')][sge_task_id]
-print(input_pdb)
+# --- Lazy AF setup ---#
+fatty_pdb_list = [pdb for pdb in os.listdir(input_pdb_dir)] * 40  # Assuming 2000 tasks, 50 input PDBs
+input_pdb = fatty_pdb_list[sge_task_id]
 
 arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgccrelease',
        '-database',
        '/netapp/home/james.lucas/Rosetta/main/database',
        '-s',
-       os.path.join(input_dir, input_pdb),
+       os.path.join(input_pdb_dir, input_pdb),
        '-extra_res_fa',
        params_file_path,
        '-parser:protocol',
@@ -115,14 +116,14 @@ arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgc
        '/netapp/home/james.lucas/Rosetta/main/source/external/DAlpahBall/DAlphaBall.gcc', # Full path to DAlphaBall.gcc on chef
        '-out:prefix',
        '{0}-'.format(sge_task_id + 1),
-       # '-out:no_nstruct_label',
-       # 'True',
+       #  '-out:suffix',
+       # '-{0}'.format(design),
        '-nstruct',
-        nstruct,
+       designs_per_task,
        '-parser:script_vars',
        'motif_residues={0}'.format(','.join([str(resnum[1]) for resnum in determine_matched_residue_positions(input_pdb_base)])),
        'design_positions={0}'.format(','.join([str(a) for a in design_json['design_residue_list']])),
-       # 'design_xml={0}'.format('BackrubEnsemble-Ensemble.xml')
+       # 'design_xml={0}'.format('CoupledMoves.xml')
        ]
 
 print(' '.join(arg))

@@ -105,21 +105,21 @@ arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgc
        '-parser:protocol',
        'Design_Template.xml',
        # '-use_input_sc',
-       # '-flip_HNQ',
-       # '-no_optH',
-       # 'false',
+       '-flip_HNQ',
+       '-no_optH',
+       'false',
        '-holes:dalphaball', # Required for RosettaHoles Filter
        '/netapp/home/james.lucas/Rosetta/main/source/external/DAlpahBall/DAlphaBall.gcc', # Full path to DAlphaBall.gcc on chef
        '-out:prefix',
        '{0}-'.format(sge_task_id + 1),
-        '-out:suffix',
-       '_{0}'.format(design),
+       #  '-out:suffix',
+       # '_{0}'.format(design),
+       '-nstruct',
+       '5',
        '-parser:script_vars',
        'motif_residues={0}'.format(','.join([str(resnum[1]) for resnum in determine_matched_residue_positions(input_pdb_base)])),
        'design_positions={0}'.format(','.join([str(a) for a in design_json['design_residue_list']])),
        # 'design_xml={0}'.format('PreDesign.xml')
-       '-nstruct',
-       '5'
        ]
 
 print(' '.join(arg))

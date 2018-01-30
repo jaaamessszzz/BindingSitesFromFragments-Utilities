@@ -47,11 +47,22 @@ def download_PDBs(monomer=False):
     os.makedirs(gridlig_output_path, exist_ok=True)
     os.makedirs(posfile_output_path, exist_ok=True)
 
-    for expression_organism in ['ESCHERICHIA COLI', 'saccharomyces cerevisiae'.upper()]:
+    for expression_organism in ['ESCHERICHIA COLI', 'saccharomyces cerevisiae'.upper(), 'pichia pastoris'.upper()]:
 
         # <description>Chain Type: there is a Protein chain but not any DNA or RNA or Hybrid</description>
         # <description>Stoichiometry in biological assembly: Stoichiometry is AB</description>
-        # <description># of Disulfide link records: Min is 0 and Max is 2</description>
+        # <description># of Disulfide link records: Min is 0 and Max is 4</description>
+
+        # <queryRefinement>
+        # <queryRefinementLevel>2</queryRefinementLevel>
+        # <conjunctionType>and</conjunctionType>
+        # <orgPdbQuery>
+        # <queryType>org.pdb.query.simple.CloseContactsQuery</queryType>
+        # <min>0</min>
+        # <max>4</max>
+        # </orgPdbQuery>
+        # </queryRefinement>
+
         # <description>Oligomeric state Search : Min Number of oligomeric state=2 Max Number of oligomeric state=2</description>
         # <description>ExpressionOrganismQuery: entity_src_gen.pdbx_host_org_scientific_name.comparator=contains entity_src_gen.pdbx_host_org_scientific_name.value=ESCHERICHIA COLI </description>
         # <description>Resolution is between 1.0 and 3.0 </description>
@@ -80,16 +91,6 @@ def download_PDBs(monomer=False):
         <orgPdbQuery>
         <queryType>org.pdb.query.simple.StoichiometryQuery</queryType>
         <stoichiometry>AB</stoichiometry>
-        </orgPdbQuery>
-        </queryRefinement>
-        
-        <queryRefinement>
-        <queryRefinementLevel>2</queryRefinementLevel>
-        <conjunctionType>and</conjunctionType>
-        <orgPdbQuery>
-        <queryType>org.pdb.query.simple.CloseContactsQuery</queryType>
-        <min>0</min>
-        <max>2</max>
         </orgPdbQuery>
         </queryRefinement>
         
@@ -158,41 +159,67 @@ def download_PDBs(monomer=False):
         pprint.pprint(len(result_pdbs))
         pprint.pprint(result_pdbs)
 
+
         if len(result_pdbs) > 0:
+
+            # Keep track of numbers
+            total_returned_pdbs = len(result_pdbs)
+            acceptable_pdbs = 0
+            total_scaffold_units = 0
+
             # Download PDB files
-            # todo: turn result_pdbs into a set, get heterodimer information from biomoltrans
             for pdb in result_pdbs:
                 pdb_split = pdb.decode("utf-8").split(':')
                 pdb_name = pdb_split[0].upper()
                 pdb_biomol_index = pdb_split[1]
 
-                pdb_prody = prody.parsePDB(pdb_name)
-                pdb_prody_header = prody.parsePDB(pdb_name, header=True, model=0, meta=False)
+                # Has this PDB already been processed
+                already_processed = any([pdb_name in pdb for pdb in os.listdir(pdb_output_dir)])
+
+                if already_processed:
+                    continue
+
+                try:
+                    pdb_prody = prody.parsePDB(pdb_name)
+                    pdb_prody_header = prody.parsePDB(pdb_name, header=True, model=0, meta=False)
+                except Exception as e:
+                    print(e)
+                    continue
 
                 # set of database identifier tuples for a given scaffold
                 processed_heterodimers = set()
                 biomol_count = 0
 
-                for biomolecular_complex_index in pdb_prody_header['biomoltrans']:
-                    if len(pdb_prody_header['biomoltrans'][biomolecular_complex_index][0]) == 2:
-                        chain_1_mapping = pdb_prody_header['biomoltrans'][biomolecular_complex_index][0][0]
-                        chain_2_mapping = pdb_prody_header['biomoltrans'][biomolecular_complex_index][0][1]
-                    else:
-                        continue
+                # Is the scaffold an undesireable classification
+                trash_proteins = ['IMMUNOGLOBULIN', 'IMMUNE', 'MEMBRANE', 'ANTIBODY', 'TOXIN ']
+                is_this_trash = any([trash_protein in pdb_prody_header['classification'] for trash_protein in trash_proteins])
 
-                    # Get actual chain names for selections
-                    chain_1_polymer = pdb_prody_header[chain_1_mapping]
-                    chain_2_polymer = pdb_prody_header[chain_2_mapping]
+                if not is_this_trash:
 
-                    chain_1_actual = chain_1_polymer.chid
-                    chain_2_actual = chain_2_polymer.chid
+                    acceptable_pdbs += 1
 
-                    # Get DB reference for each chain and check against processed_heterodimers
-                    db_tuple = tuple(sorted((chain_1_polymer.dbrefs[0].accession, chain_2_polymer.dbrefs[0].accession)))
+                    for biomolecular_complex_index in pdb_prody_header['biomoltrans']:
 
-                    if db_tuple not in processed_heterodimers:
+                        total_scaffold_units += 1
+
+                        if len(pdb_prody_header['biomoltrans'][biomolecular_complex_index][0]) == 2:
+                            chain_1_mapping = pdb_prody_header['biomoltrans'][biomolecular_complex_index][0][0]
+                            chain_2_mapping = pdb_prody_header['biomoltrans'][biomolecular_complex_index][0][1]
+                        else:
+                            continue
+
+                        # Get actual chain names for selections
+                        chain_1_polymer = pdb_prody_header[chain_1_mapping]
+                        chain_2_polymer = pdb_prody_header[chain_2_mapping]
+
+                        chain_1_actual = chain_1_polymer.chid
+                        chain_2_actual = chain_2_polymer.chid
+
+                        # Get DB reference for each chain and check against processed_heterodimers
+                        # db_tuple = tuple(sorted((chain_1_polymer.dbrefs[0].accession, chain_2_polymer.dbrefs[0].accession)))
+
                         biomol_count += 1
-                        processed_heterodimers.add(db_tuple)
+                        # processed_heterodimers.add(db_tuple)
 
                         selected_chains_prody = pdb_prody.select('chain {} {}'.format(chain_1_actual, chain_2_actual))
                         cleaned_prody, removed_residues = clean_pdb(selected_chains_prody)
@@ -206,7 +233,7 @@ def download_PDBs(monomer=False):
 
                         temp_final = io.StringIO()
                         temp_final.write('REMARK {} Chains {} {}\n'.format(pdb_name, chain_1_actual, chain_2_actual))
-                        temp_final.write('REMARK Removed_Native_Residues: {}\n'.format(removed_residues))
+                        temp_final.write('REMARK Removed_Native_Residues: {}\n'.format(', '.join(removed_residues)))
                         temp_final.write('REMARK Chain_{}_NativeSeq: {}\n'.format(chain_1_actual, chain_1_polymer.sequence))
                         temp_final.write('REMARK Chain_{}_NativeSeq: {}\n'.format(chain_2_actual, chain_2_polymer.sequence))
                         shutil.copyfileobj(temp_output_stream, temp_final)
@@ -215,21 +242,27 @@ def download_PDBs(monomer=False):
                         with gzip.open(os.path.join(pdb_output_dir, '{}.pdb{}.gz'.format(pdb_name, biomol_count)), mode='wt') as final_out:
                             shutil.copyfileobj(temp_final, final_out)
 
-                    else:
-                        continue
+                        # Generate posfile
+                        # all residues with CB within 10A of interface minus glycines and prolines
+                        interface_residues_A = cleaned_prody.select('(name CB within 10 of chain {}) and not resname PRO GLY and not chain {}'.format(chain_1_actual, chain_1_actual))
+                        interface_residues_B = cleaned_prody.select('(name CB within 10 of chain {}) and not resname PRO GLY and not chain {}'.format(chain_2_actual, chain_2_actual))
+                        interface_resnums = sorted(list(interface_residues_A.getResnums()) + list(interface_residues_B.getResnums()))
+                        print(interface_resnums)
 
-                    # Generate posfile
-                    # all residues with CB within 10A of interface minus glycines and prolines
-                    interface_residues_A = cleaned_prody.select('(name CB within 10 of chain {}) and not resname PRO and not chain {}'.format(chain_1_actual, chain_1_actual))
-                    interface_residues_B = cleaned_prody.select('(name CB within 10 of chain {}) and not resname PRO and not chain {}'.format(chain_2_actual, chain_2_actual))
-                    interface_resnums = sorted(list(interface_residues_A.getResnums()) + list(interface_residues_B.getResnums()))
-                    print(interface_resnums)
+                        with open(os.path.join(posfile_output_path, '{}.pdb{}.pos'.format(pdb_name, biomol_count)), 'w') as posfile:
+                            posfile.write(' '.join([str(a) for a in interface_resnums]))
 
-                    with open(os.path.join(posfile_output_path, '{}.pdb{}.pos'.format(pdb_name, biomol_count)), 'w') as posfile:
-                        posfile.write(' '.join([str(a) for a in interface_resnums]))
+                        # Generate gridlig... or not
+                        # Nah
+                else:
+                    if is_this_trash:
+                        print('{} passed: scaffold is {}!'.format(pdb_name, pdb_prody_header['classification']))
+                    if already_processed:
+                        print('{} already processed!'.format(pdb_name))
 
-                    # Generate gridlig... or not
-                    # Nah.ge
+            # Report
+            print('\nCompleted scaffold library!\n')
+            print('{0} of {1} PDBs were used to generate {2} unique heterodimer scaffolds'.format(acceptable_pdbs, total_returned_pdbs, total_scaffold_units))
 
 def main():
     args = docopt.docopt(__doc__)

@@ -3,11 +3,18 @@
 <MOVERS>
 
     <!--Fixbb-->
-    <PackRotamersMover name="fixbb" scorefxn="sfxn_cst" task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>
+    <PackRotamersMover name="fixbb" scorefxn="sfxn_cst" task_operations="ic,extra_rots,limitAroChi,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG"/>
+
+    <!--Rotamer Trials-->
+    <RotamerTrialsMover name="RotamerTrials" scorefxn="sfxn_cst" task_operations="ic,extra_rots,limitAroChi,fixlig,motif_task,NATRO_positions,init,no_PG"/>
 
     <!--Design Protocol that is passed to GenericMonteCarlo-->
     <ParsedProtocol name="design_protocol" mode="sequence">
         <Add mover_name="fixbb"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="RotamerTrials"/>
+
         <Add filter_name="interfE"/>
         <Add filter_name="Lig_ShapeC"/>
         <Add filter_name="packstat"/>

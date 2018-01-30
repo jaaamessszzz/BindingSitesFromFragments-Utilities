@@ -137,6 +137,7 @@ if args['<scaffold_file_path>']:
 
 # Lazy
 if args['iteration']:
+    print(args['<gurobi_constraints_csv>'])
     scaffold_csv = pd.read_csv(args['<gurobi_constraints_csv>'])
     gurobi_iteration_solutions_dir = args['<gurobi_iteration_solutions>']
     gurobi_iteration_solutions = [solution for solution in os.listdir(gurobi_iteration_solutions_dir) if solution.endswith('.csv')]
@@ -151,6 +152,7 @@ if args['iteration']:
         current_scaffolds = [scaffold for scaffold in relevant_scaffolds if row['scaffold'] in scaffold]
 
         for scaffold in current_scaffolds:
+            print('Writing constraints for scaffold {}'.format(scaffold))
             for index, row in current_solution_csv.iterrows():
                 residue_index_list = literal_eval(row['Residue_indicies'])
                 constraint_filename = "{}-{}.cst".format(row['Conformer'], '_'.join([str(a) for a in residue_index_list]))

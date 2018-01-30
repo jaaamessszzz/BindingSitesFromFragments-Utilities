@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """
-Script for submitting jobs to predesign matches for CoupledMoves and BackrubEnsemble
+Script for submitting jobs to generate BackrubEnsembles using a set of predesigned PDBs
 """
 
 from __future__ import print_function
@@ -8,6 +8,7 @@ import os
 import subprocess
 import shutil
 import fileinput
+import sys
 
 cwd = os.getcwd()
 
@@ -24,8 +25,7 @@ def move_file_to_design_dir(file_to_move, design_dir):
 
 
 # --- Positional Arguments --- #
-
-# Do design first with FixBB, filter, then use the best 5-10 then 10 backrub as starting points
+selected_predesign_dir = sys.argv[1]
 
 # --- Fixed variables --- #
 # Get compound ID
@@ -35,19 +35,20 @@ compound_id = cwd_list[cwd_list.index('Compounds') + 1]
 compound_dir = '/netapp/home/james.lucas/BindingSitesFromFragments/Compounds/{0}'.format(compound_id)
 params_dir = os.path.join(compound_dir, 'params')
 
-# --- Submit jobs for each input PDB --- #
-for pdb in os.listdir(cwd):
-    if pdb.endswith('.pdb'):
+# --- Submit jobs for each set of predesigned matches --- #
+for predesign_set in os.listdir(selected_predesign_dir):
 
         current_xml = 'BackrubEnsemble-Ensemble.xml'
 
-        # input_pdb = sys.argv[1]
+        full_predesign_set_dir = os.path.join(cwd, selected_predesign_dir, predesign_set)
+
+        # input_dir = sys.argv[1]
         # params_file_path = sys.argv[2]
         # design_json_path = sys.argv[3]
         # designs_per_task = sys.argv[4]
 
         # Make/check directories
-        design_path = os.path.join(cwd, current_xml.split('.')[0], pdb.split('.')[0])
+        design_path = os.path.join(cwd, current_xml.split('.')[0], predesign_set)
 
         # Only continue if directory doesn't exist, else continue
         # The logic being that if the directory exists, something was already submitted
@@ -75,18 +76,18 @@ for pdb in os.listdir(cwd):
         move_file_to_design_dir(current_submit_script, design_path)
 
         # Get correct params file from PDB name
-        params_file = pdb.split('-')[0][-8:]
+        params_file = predesign_set.split('-')[0][-8:]
         print(params_file)
 
-        # todo: add check for relaxed PDB inputs (CoupledMoves and BackrubEnsemble)? Or always generate ab initio?
-        # todo: create dict for appropriate args for each design XML
+        # todo: add check for relaxed PDB inputs (CoupledMoves and BackrunEnsemble)? Or always generate ab initio?
+        # todo: create dict for approproate args for each design XML
 
         args = ['qsub',
                 current_submit_script,
-                os.path.join(compound_dir, 'Design', pdb),
+                full_predesign_set_dir,
                 os.path.join(params_dir, '{0}.params'.format(params_file)),
-                '../../{0}-design_inputs.json'.format(pdb.split('.')[0]),
-                '5' # Designs per task
+                '../../{0}-design_inputs.json'.format(predesign_set),
+                '10' # Designs per task
                 ]
         print(args)
 

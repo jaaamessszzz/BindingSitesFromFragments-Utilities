@@ -1,12 +1,19 @@
 <MOVERS>
     <!--Coupled Moves-->
-    <CoupledMovesProtocol name="CoupledMoves" scorefxn="sfxn_cst"
-                          task_operations="ic,extra_rots,fixlig,hbnet_task,motif_task,NATRO_positions,init,no_PG">
+    <CoupledMovesProtocol name="CoupledMoves"
+                          task_operations="ic,extra_rots,limitAroChi,fixlig,motif_task,NATRO_positions,init,no_PG">
     </CoupledMovesProtocol>
+
+    <!--Rotamer Trials-->
+    <RotamerTrialsMover name="RotamerTrials" scorefxn="sfxn_cst" task_operations="ic,extra_rots,limitAroChi,fixlig,motif_task,NATRO_positions,init,no_PG"/>
 
     <!--Design Protocol-->
     <ParsedProtocol name="design_protocol" mode="sequence">
         <Add mover_name="CoupledMoves"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="RotamerTrials"/>
+
         <Add filter_name="interfE"/>
         <Add filter_name="Lig_ShapeC"/>
         <Add filter_name="packstat"/>

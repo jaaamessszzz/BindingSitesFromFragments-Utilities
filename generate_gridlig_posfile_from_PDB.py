@@ -37,7 +37,13 @@ import sys
 import os
 import numpy as np
 
-def clean_pdb(input_pdb, ligand_code, resnum):
+canon_residues = ['ALA', 'CYS', 'SEC', 'ASP', 'GLU',
+                  'PHE', 'GLY', 'HIS', 'ILE', 'LYS',
+                  'LEU', 'MET', 'MSE', 'ASN', 'PRO',
+                  'GLN', 'ARG', 'SER', 'THR', 'VAL',
+                  'TRP', 'TYR']
+
+def clean_pdb(input_pdb, ligand_code=None, resnum=None):
     """
     Clean PDB. Roland: MSE to MET records, CSE to CYS records, discarding alternative conformations, setting all atom 
     occupancies to 1.0, discarding all residues with any missing main chain atom(s), removing all ligands but the 
@@ -45,7 +51,10 @@ def clean_pdb(input_pdb, ligand_code, resnum):
     :return: 
     """
     # Apparently this selects Altloc A if there are alternate locations at all... makes things easy
-    cleanish_pdb = input_pdb.select('(protein or hetero) and not water').copy()
+    # cleanish_pdb = input_pdb.select('(protein or hetero) and not water').copy()
+
+    # todo: clean this up for Shakked's shit...
+    cleanish_pdb = input_pdb.select('(protein or hetero or nucleic) and not water').copy()
     hv = cleanish_pdb.getHierView()
 
     # Output atomgroup
@@ -53,6 +62,9 @@ def clean_pdb(input_pdb, ligand_code, resnum):
 
     # Residue count
     res_count = 1
+
+    # Keep track of removed residues
+    removed_residues = []
 
     for chain in hv:
         for residue in chain:
@@ -62,12 +74,11 @@ def clean_pdb(input_pdb, ligand_code, resnum):
                 residue.setResnum(res_count)
                 res_count += 1
 
-                # Add to output atomgroup
-                print(residue)
+                # Add to output atomgroup\
                 output_atoms = _add_to_output(output_atoms, residue)
 
             # Check Backbone atoms, else don't add to output atomgroup
-            elif all(atom in residue.getNames() for atom in ['N', 'C', 'CA']):
+            elif all(atom in residue.getNames() for atom in ['N', 'C', 'CA']) and residue.getResname() in canon_residues:
 
                 # Set Rosetta Numbering
                 residue.setResnum(res_count)
@@ -75,20 +86,31 @@ def clean_pdb(input_pdb, ligand_code, resnum):
 
                 # Check and correct for MSE/SEC
                 if residue.getResname() in ['MSE', 'SEC']:
+                    print(residue)
                     residue = _fix_mse_sec(residue, residue.getResname())
 
                 # Set all occupancies to 1
                 residue.setOccupancies([1] * len(residue))
 
                 # Add to output atomgroup
-                print(residue)
+                output_atoms = _add_to_output(output_atoms, residue)
+
+            # todo: TEMP for Shakked's shit...
+            elif residue.getResname() in ['A', 'T', 'C', 'G', 'U']:
+
+                # Set Rosetta Numbering
+                residue.setResnum(res_count)
+                res_count += 1
+
+                # Add to output atomgroup\
                 output_atoms = _add_to_output(output_atoms, residue)
 
             # Tossed HETATM or residues
             else:
                 print('Removed {}'.format(residue))
+                removed_residues.append('{0}{1}'.format(residue.getResname(), residue.getResnum()))
 
-    return output_atoms
+    return output_atoms, removed_residues
 
 def generate_posfile_info(cleaned_pdb, ligand_code):
     """
@@ -129,9 +151,13 @@ def _fix_mse_sec(representative_residue, resname):
     """
     # Find index of SE
     res_elements = representative_residue.getElements()
-    seleno_index = [e for e in res_elements].index('SE')
+
+    # If SE is missing due to missing atoms, just return the residue as is
+    if 'SE' not in res_elements:
+        return representative_residue
 
     # Set SE to S
+    seleno_index = [e for e in res_elements].index('SE')
     res_elements[seleno_index] = 'S'
 
     # Set elements to MET
@@ -163,7 +189,7 @@ def main():
     print(input_pdb, ligand_code, resnum)
 
     # Generate cleaned PDB
-    cleaned_pdb = clean_pdb(input_pdb, ligand_code, resnum)
+    cleaned_pdb, removed_residues = clean_pdb(input_pdb, ligand_code, resnum)
     # todo: get rid of the fucking remarks in the output PDB
     prody.writePDB('{}_clean.pdb.gz'.format(args['<input_PDB>'].upper()), cleaned_pdb)
     scaffold_only = cleaned_pdb.select('protein')
