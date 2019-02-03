@@ -1,0 +1,114 @@
+<RESIDUE_SELECTORS>
+    <!--Select Alanines at design positions for additional design-->
+    <ResidueName name="ala_selector" residue_name3="ALA" />
+    <And name="designable_ala" selectors="designed,ala_selector"/>
+
+    <!--Only repack residues immediately around alanines-->
+    <!--<Neighborhood name="ala_packing_shell" selector="designable_ala" distance="6"/>-->
+    <And name="ala_packing_shell">
+        <Neighborhood selector="designable_ala" distance="8"/>
+        <Not>
+            <ResidueName residue_name3="ALA" />
+        </Not>
+    </And>
+
+    <!--Set everything not in ala_packing_shell and designable_ala to NATRO-->
+    <Or name="ala_involved_positions" selectors="ala_packing_shell,designable_ala"/>
+    <Not name="ALA_not_packable_positions" selector="ala_involved_positions"/>
+
+</RESIDUE_SELECTORS>
+
+<TASKOPERATIONS>
+    <!--Restrict design to non-ACPG-->
+    <OperateOnResidueSubset name="design_away_ala" selector="designable_ala">
+        <RestrictAbsentCanonicalAASRLT aas="ADHILNSTV"/>
+    </OperateOnResidueSubset>
+
+    <!--Set positions around ALA to repack only-->
+    <OperateOnResidueSubset name="ALA_repack_positions" selector="ala_packing_shell">
+        <RestrictToRepackingRLT/>
+    </OperateOnResidueSubset>
+
+    <!--Set everything else to NATRO-->
+    <OperateOnResidueSubset name="ALA_NATRO_positions" selector="ALA_not_packable_positions">
+        <PreventRepackingRLT/>
+    </OperateOnResidueSubset>
+
+</TASKOPERATIONS>
+
+<MOVERS>
+    <!--Fast Design-->
+    <FastDesign name="FastDesign_init" scorefxn="sfxn_cst" clear_designable_residues="False" ramp_down_constraints="False"
+                task_operations="ic,extra_rots,limitAroChi,fixlig,hbnet_task,motif_task_NATRO,NATRO_positions,init,no_PG,packing_positions" repeats="2">
+        <MoveMap name="FD_movemap">
+            <!--Don't minimize the jump between heterodimer chains-->
+            <Jump number="1" setting="0"/>
+            <!--Don't minimize the jump between protein and ligand -->
+            <Jump number="2" setting="0"/>
+            <!--Don't minimize Ligand...-->
+            <Chain number="3" chi="0" bb="0"/>
+        </MoveMap>
+    </FastDesign>
+
+    <!--Fast Design-->
+    <FastDesign name="FastDesign" scorefxn="sfxn_cst" clear_designable_residues="False" ramp_down_constraints="False"
+                task_operations="ic,extra_rots,limitAroChi,fixlig,hbnet_task,motif_task_repack,NATRO_positions,init,no_PG,packing_positions" repeats="2">
+        <MoveMap name="FD_movemap">
+            <!--Don't minimize the jump between heterodimer chains-->
+            <Jump number="1" setting="0"/>
+            <!--Don't minimize the jump between protein and ligand -->
+            <Jump number="2" setting="0"/>
+            <!--Don't minimize Ligand...-->
+            <Chain number="3" chi="0" bb="0"/>
+        </MoveMap>
+
+    </FastDesign>
+
+    <!--Fast Design for Alanines-->
+    <FastDesign name="FastDesign_ala" scorefxn="sfxn_cst" clear_designable_residues="False" ramp_down_constraints="False"
+                task_operations="ic,extra_rots,limitAroChi,fixlig,hbnet_task,motif_task_repack,init,design_away_ala,ALA_repack_positions,ALA_NATRO_positions" repeats="2">
+        <MoveMap name="FD_movemap">
+            <!--Don't minimize the jump between heterodimer chains-->
+            <Jump number="1" setting="0"/>
+            <!--Don't minimize the jump between protein and ligand -->
+            <Jump number="2" setting="0"/>
+            <!--Don't minimize Ligand...-->
+            <Chain number="3" chi="0" bb="0"/>
+        </MoveMap>
+    </FastDesign>
+
+    <!--RotamerTrials-->
+    <RotamerTrialsMover name="RotamerTrials" scorefxn="sfxn_cst" task_operations="ic,extra_rots,limitAroChi,fixlig,hbnet_task,motif_task_repack,NATRO_positions,init,no_PG,packing_positions"/>
+
+    <!--Set Foldtree-->
+    <AtomTree name="set_foldtree" fold_tree_file="../../%%foldtree_file%%" />
+
+    <!--Add Matcher Constraints-->
+    <AddOrRemoveMatchCsts cst_instruction="add_new" name="add_match_constraints" />
+
+    <!--Design Protocol-->
+    <ParsedProtocol name="design_protocol" mode="sequence">
+        <Add mover_name="set_foldtree"/>
+        <Add mover_name="add_match_constraints"/>
+        <Add mover_name="FastDesign_init"/>
+        <Add mover_name="FastDesign"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="FastDesign_ala"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="FastDesign"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="RotamerTrials"/>
+        <Add mover_name="RotamerTrials"/>
+
+        <Add filter_name="interfE"/>
+        <Add filter_name="Lig_ShapeC"/>
+        <Add filter_name="packstat"/>
+        <Add filter_name="buried_unsat"/>
+        <!--<Add filter_name="repack_without_ligand"/>-->
+        <Add filter_name="rosettaholes"/>
+    </ParsedProtocol>
+</MOVERS>
+
+<PROTOCOLS>
+    <Add mover_name="design_protocol"/>
+</PROTOCOLS>

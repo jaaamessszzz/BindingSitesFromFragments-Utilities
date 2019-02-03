@@ -4,10 +4,10 @@
 #$ -R yes
 #$ -j yes
 #$ -l h_rt=240:00:00
-#$ -t 1-1000
+#$ -t 1-20
 #$ -l arch=linux-x64
-#$ -l mem_free=25G
-#$ -l netapp=2G,scratch=1G
+#$ -l mem_free=2G
+#$ -l netapp=1G,scratch=1G
 
 import socket
 import sys
@@ -77,6 +77,7 @@ print('Task id:', sge_task_id)
 input_pdb = sys.argv[1]
 params_file_path = sys.argv[2]
 design_json_path = sys.argv[3]
+foldtree_path = sys.argv[4]
 
 input_pdb_base = os.path.basename(os.path.normpath(input_pdb))
 design_json = json.load(open(design_json_path, 'r'))
@@ -102,21 +103,21 @@ arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgc
        '-extra_res_fa',
        params_file_path,
        '-parser:protocol',
-       'FastDesign_HBNet.xml',
+       'Repack_without_ligand.xml',
+       '-run:preserve_header',  # Required (?) for applying matcher constraints
        # '-use_input_sc',
        '-flip_HNQ',
        '-no_optH',
        'false',
-       '-holes:dalphaball', # Required for RosettaHoles Filter
-       '/netapp/home/james.lucas/Rosetta/main/source/external/DAlpahBall/DAlphaBall.gcc', # Full path to DAlphaBall.gcc on chef
        '-out:prefix',
        '{0}-'.format(sge_task_id + 1),
-       # '-nstruct',
-       # '5',
+       '-nstruct',
+       '5',
        '-parser:script_vars',
        'motif_residues={0}'.format(','.join([str(resnum[1]) for resnum in determine_matched_residue_positions(input_pdb_base)])),
        'design_positions={0}'.format(','.join([str(a) for a in design_json['design_residue_list']])),
        # 'design_xml={0}'.format('FastDesign.xml')
+       'foldtree_file={0}'.format(foldtree_path)
        ]
 
 print(' '.join(arg))

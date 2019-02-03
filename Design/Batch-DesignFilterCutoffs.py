@@ -48,6 +48,7 @@ strategies
 from __future__ import print_function
 import os
 import sys
+import re
 import subprocess
 import shutil
 import fileinput
@@ -66,11 +67,14 @@ def move_file_to_design_dir(file_to_move, design_dir):
 # todo: CoupledMoves and BackrunEnsemble require FastRelaxed inputs...
 design_strategies = ['FastDesign_HBNet.xml',
                      'FastDesign_Only.xml',
-                     'CoupledMoves.xml',
-                     'BackrubEnsemble.xml']
+                     # 'CoupledMoves.xml',
+                     # 'BackrubEnsemble.xml',
+                     ]
 
 # --- Positional Arguments --- #
 design_inputs = sys.argv[1]
+foldtree_path = sys.argv[2]
+cstfile_path = sys.argv[3]
 
 # --- Fixed variables --- #
 # Get compound ID
@@ -92,9 +96,7 @@ for pdb in os.listdir(design_inputs):
             os.makedirs(current_pdb_name)
         except Exception as e:
             print(e)
-            print("\n\nCouldn't make a new directory for {0}, it probably already exists...\n"
-                  "Try deleting the existing directory and try again\n\n".format(current_pdb_name))
-            continue
+            print("WARNING: Directory for {0} already exists! Continuing anyways...\n\n".format(current_pdb_name))
 
         # Submit jobs for each design strategy
         for current_xml in design_strategies:
@@ -176,7 +178,9 @@ for pdb in os.listdir(design_inputs):
             # Replace "%%design_xml%%" in Design_Template.xml with correct XML
             template_xml = fileinput.FileInput(os.path.join(design_path, 'Design_Template.xml'), inplace=True)
             for line in template_xml:
-                print(line.replace('%%design_xml%%', xml_substitution), end='')
+                line = line.replace('%%design_xml%%', xml_substitution)
+                print(line, end='')
+
             template_xml.close()
 
             # Move submission script into design directory
@@ -186,6 +190,11 @@ for pdb in os.listdir(design_inputs):
             # Get correct params file from PDB name
             params_file = pdb.split('-')[0][-8:]
 
+            # Get correct constraint file name from PDB name
+            possible_cstfiles = [cst for cst in os.listdir(cstfile_path) if cst.endswith('.cst')]
+            lmao = [cst.split('.')[0] in pdb for cst in possible_cstfiles]
+            cstfile_name = possible_cstfiles[lmao.index(True)]
+
             # todo: create dict for approproate args for each design XML
 
             # --- Submit things --- #
@@ -194,7 +203,9 @@ for pdb in os.listdir(design_inputs):
                     current_submit_script,
                     qsub_pdb_argument,
                     os.path.join(params_dir, '{0}.params'.format(params_file)),
-                    os.path.join(cwd, '{0}-design_inputs.json'.format(pdb.split('.')[0]))
+                    os.path.join(cwd, '{0}-design_inputs.json'.format(pdb.split('.')[0])),
+                    os.path.join(foldtree_path, '{0}-FoldTree.ft'.format(pdb.split('.')[0])),
+                    os.path.join(cstfile_path, '{0}'.format(cstfile_name))
                     ]
 
             if current_xml in ['BackrubEnsemble.xml', 'CoupledMoves.xml']:

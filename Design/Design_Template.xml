@@ -24,8 +24,15 @@
         <!--All positions I really care about...-->
         <Or name="relevant_positions" selectors="motif_and_HBNet,designed"/>
 
+        <!--Packing_shell  - relevant positions and all residues within 8A of relevant positions-->
+        <Neighborhood name="packing_shell" selector="relevant_positions" distance="8"/>
+
         <!--Select all residues that aren't in design/pack positions-->
-        <Not name="not_packable_positions" selector="designed"/>
+        <Not name="not_packable_positions" selector="packing_shell"/>
+
+        <!--Repack things directly around designable residues-->
+        <Or name="NATRO_or_designable" selectors="relevant_positions,not_packable_positions"/>
+        <Not name="repack_only" selector="NATRO_or_designable"/>
 
     </RESIDUE_SELECTORS>
 
@@ -39,13 +46,27 @@
         </OperateOnResidueSubset>
 
         <!--Set motif residues to no repack or design-->
-        <OperateOnResidueSubset name="motif_task" selector="motif_residues">
-           <PreventRepackingRLT/>
+        <!--20180506 - Actually now that I set constraints between the each of the motif residues and the ligand,
+                       letting motif residues repack a bit might be beneficial
+        -->
+        <OperateOnResidueSubset name="motif_task_repack" selector="motif_residues">
+           <!--<PreventRepackingRLT/>-->
+            <RestrictToRepackingRLT/>
+        </OperateOnResidueSubset>
+
+        <OperateOnResidueSubset name="motif_task_NATRO" selector="motif_residues">
+           <!--<PreventRepackingRLT/>-->
+            <RestrictToRepackingRLT/>
         </OperateOnResidueSubset>
 
         <!--Set ligand to no repack or design-->
         <OperateOnResidueSubset name="fixlig" selector="ligand">
             <PreventRepackingRLT/>
+        </OperateOnResidueSubset>
+
+        <!--Set non-designed positions to no repack or design-->
+        <OperateOnResidueSubset name="packing_positions" selector="repack_only">
+            <RestrictToRepackingRLT/>
         </OperateOnResidueSubset>
 
         <!--Set non-designed positions to no repack or design-->
@@ -64,9 +85,9 @@
         <!--Include current rotamers in packer-->
         <IncludeCurrent name="ic" />
 
-        <!--Restrict design to non-PG-->
+        <!--Restrict design to non-CPG-->
         <OperateOnResidueSubset name="no_PG" selector="designed">
-            <RestrictAbsentCanonicalAASRLT aas="ACDEFHIKLMNQRSTVWY"/>
+            <RestrictAbsentCanonicalAASRLT aas="ADEFHIKLMNQRSTVWY"/>
         </OperateOnResidueSubset>
     </TASKOPERATIONS>
 

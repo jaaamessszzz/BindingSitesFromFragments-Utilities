@@ -6,7 +6,7 @@
 #$ -l h_rt=240:00:00
 #$ -t 1-2000
 #$ -l arch=linux-x64
-#$ -l mem_free=10G
+#$ -l mem_free=5G
 #$ -l netapp=1G,scratch=1G
 
 import socket
@@ -77,7 +77,9 @@ print('Task id:', sge_task_id)
 input_pdb_dir = sys.argv[1]
 params_file_path = sys.argv[2]
 design_json_path = sys.argv[3]
-designs_per_task = sys.argv[4]
+foldtree_path = sys.argv[4]
+cstfile_path = sys.argv[5]
+designs_per_task = sys.argv[6]
 
 input_pdb_base = os.path.basename(os.path.normpath(input_pdb_dir))
 design_json = json.load(open(design_json_path, 'r'))
@@ -89,7 +91,7 @@ design_json = json.load(open(design_json_path, 'r'))
 time_start = roundTime()
 print('Starting time:', time_start)
 
-# print(input_pdb_base)
+print(input_pdb_base)
 print(determine_matched_residue_positions(input_pdb_base))
 print(params_file_path)
 print(design_json)
@@ -108,6 +110,8 @@ arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgc
        params_file_path,
        '-parser:protocol',
        'Design_Template.xml',
+       '-enzdes:cstfile ../../{0}'.format(cstfile_path),  # Required for applying matcher constraints
+       '-run:preserve_header',  # Required (?) for applying matcher constraints
        # '-use_input_sc',
        '-flip_HNQ',
        '-no_optH',
@@ -123,7 +127,8 @@ arg = ['/netapp/home/james.lucas/Rosetta/main/source/bin/rosetta_scripts.linuxgc
        '-parser:script_vars',
        'motif_residues={0}'.format(','.join([str(resnum[1]) for resnum in determine_matched_residue_positions(input_pdb_base)])),
        'design_positions={0}'.format(','.join([str(a) for a in design_json['design_residue_list']])),
-       # 'design_xml={0}'.format('BackrubEnsemble-Design.xml')
+       # 'design_xml={0}'.format('CoupledMoves.xml')
+       'foldtree_file={0}'.format(foldtree_path)
        ]
 
 print(' '.join(arg))

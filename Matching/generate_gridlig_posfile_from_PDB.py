@@ -19,7 +19,7 @@ I'm anticipating that we will be mostly dealing with monomers, so Posfile residu
 within 15A of the natively bound ligand.
 
 Usage:
-    generate_gridlig_posfile_from_PDB <input_PDB> <ligand> <resnum>
+    generate_gridlig_posfile_from_PDB <input_PDB> <ligand> <resnum> -d [<posfile_distance>]
 
 Arguments:    
     <input_PDB>
@@ -112,14 +112,14 @@ def clean_pdb(input_pdb, ligand_code=None, resnum=None):
 
     return output_atoms, removed_residues
 
-def generate_posfile_info(cleaned_pdb, ligand_code):
+def generate_posfile_info(cleaned_pdb, ligand_code, distance):
     """
     Roland: all residues (in Rosetta numbering) that are within 15A° distance of the given other chain
     :param cleaned_pdb: cleaned_pdb from clean_pdb()
     :param ligand_code: three letter ligand code
     :return: list of designable resnums in cleaned pdb
     """
-    designable_residues = cleaned_pdb.select('calpha within 15 of resname {}'.format(ligand_code))
+    designable_residues = cleaned_pdb.select('calpha within {0} of resname {1}'.format(distance, ligand_code))
     return [atom.getResnum() for atom in designable_residues]
 
 def generate_gridlig_info(cleaned_pdb, ligand_code):
@@ -186,6 +186,7 @@ def main():
     ligand_code = args['<ligand>'].upper()
     resnum = int(args['<resnum>'])
 
+    distance = float(args['<posfile_distance>']) if args['<posfile_distance>'] else 15
     print(input_pdb, ligand_code, resnum)
 
     # Generate cleaned PDB
@@ -196,7 +197,7 @@ def main():
     prody.writePDB('{}_scaffold.pdb.gz'.format(args['<input_PDB>'].upper()), scaffold_only)
 
     # Generate Posfile
-    posfile_list = generate_posfile_info(cleaned_pdb, ligand_code)
+    posfile_list = generate_posfile_info(cleaned_pdb, ligand_code, distance)
     with open('{}.pdb.pos'.format(args['<input_PDB>'].upper()), 'w') as posfile:
         posfile.write(' '.join([str(a) for a in posfile_list]))
 

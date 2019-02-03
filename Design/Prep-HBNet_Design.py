@@ -45,8 +45,12 @@ class Prepare_Designs():
         self.pdbid = os.path.basename(os.path.normpath(self.match_pdb_path))
         self.match_position_list = self.determine_matched_residue_positions()
         self.match_prody = prody.parsePDB(self.match_pdb_path)
-        self.compound_id = os.path.basename(os.path.normpath(self.match_pdb_path)).split('_')[5]
+        self.compound_id = self.get_compound_id()
         self.design_position_set = self.determine_design_positions()
+
+    def get_compound_id(self):
+        basename = os.path.basename(os.path.normpath(self.match_pdb_path))
+        return basename.split('_')[6] if basename.split('_')[5] is '11' else basename.split('_')[5]
 
     def determine_design_positions(self):
         """
@@ -60,6 +64,7 @@ class Prepare_Designs():
         :return: list of design positions
         """
         design_residue_set = set()
+
         ligand_ca_shell_prody = self.match_prody.select('name CA and within 10 of resname {}'.format(self.compound_id))
         design_residue_set = design_residue_set | set([int(atom.getResnum()) for atom in ligand_ca_shell_prody if atom.getResname() not in ['PRO', 'GLY']])
 

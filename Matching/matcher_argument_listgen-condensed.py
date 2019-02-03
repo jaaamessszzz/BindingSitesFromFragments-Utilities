@@ -3,6 +3,24 @@
 """
 Generate a list of argument lists for matcher cluster runs and export as json
 
+{
+    "target_compound": "REN",
+    "posfile_dir": "/path/to/posfile_dir",
+    "cst_dir": "path/to/cst_dir",
+    "params_dir": "path/to/params_dir",
+    "scaffold_dir": "path/to/scaffold_dir",
+    "output_path": "path/to/output_path",
+    "arg_list": [
+                    {
+                        "conformer": "REN_0001",
+                        "cst_file": "REN_0001-1_2_3_4.cst",
+                        "scaffold": "ASDF.pdb.gz",
+                        "posfile": "ASDF.pdb.pos"
+                    }
+
+                ]
+}
+
 Usage:
     matcher_argument_listgen (monomer|dimer|recover) <target_compound> <working_dir_name> <scaffold_file_path> ( <cst_dir> | iteration <gurobi_constraints_csv> <gurobi_iteration_solutions>) [-m][-g][-j]
 
@@ -61,81 +79,74 @@ target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code
 working_dir_path = os.path.join(target_compound_path, 'Matching', args['<working_dir_name>'])
 constraint_file_path = os.path.join(working_dir_path, 'cst_files')
 
-match_type_list = [args['monomer'], args['dimer'], args['recover']]
-match_type_index = [i for i, x in enumerate(match_type_list) if x][0]
+if args['dimer']:
+    scaffold_path = os.path.join(bsff_path, 'Dimer_Scaffolds_by_James') if args['--james'] \
+        else os.path.join(bsff_path, 'Dimer_Scaffolds')
+    scaffold_pdb_path = os.path.join(scaffold_path, 'PDBs') if args['--james'] \
+        else os.path.join(scaffold_path, 'cleaned_heterodimers_all_biological_units')
 
-if match_type_index in [0, 1]:
-    scaffold_dirname_list = ['Monomer_Scaffolds', 'Dimer_Scaffolds']
-    scaffold_pdb_dirname_list = ['cleaned_heterodimers_all_biological_units', 'cleaned_heterodimers_all_biological_units']
-    
-    if args['--james'] and match_type_index == 1:
-        scaffold_path = os.path.join(bsff_path, 'Dimer_Scaffolds_by_James')
-        scaffold_pdb_path = os.path.join(scaffold_path, 'PDBs')
-    else:
-        scaffold_path = os.path.join(bsff_path, scaffold_dirname_list[match_type_index])
-        scaffold_pdb_path = os.path.join(scaffold_path, scaffold_pdb_dirname_list[match_type_index])
-        
-else:
+elif args['monomer']:
+    scaffold_path = scaffold_pdb_path = os.path.join(bsff_path, 'Monomer_Scaffolds')
+
+elif args['recover']:
     scaffold_path = os.path.join(working_dir_path, 'Recovery_Scaffolds')
     scaffold_pdb_path = os.path.join(scaffold_path, 'PDBs')
+else:
+    sys.exit('wut.')
 
 ################################
 #   Construct Arguement List   #
 ################################
-print(match_type_index)
 print(scaffold_path)
 print(scaffold_pdb_path)
 
 # Start list of args
 argument_list = []
 
-def add_arg_to_list(scaffold, constraint):
+def add_arg_to_list(scaffold, constraint, monomer=False):
     """
     Add an arguement to the list
+
+    dimer - ASDF.pdb.gz
+    monomer - ASDF.pdb_0.pos
+
     :return:
     """
     # Get current scaffold
-    current_scaffold_path = os.path.join(scaffold_pdb_path, scaffold)
+    current_scaffold = '{}.pdb'.format(scaffold.split('.')[0]) if monomer else '{0}'.format(scaffold)
 
-    # Get posfile and gridlig files for current scaffold
-    # todo: add check for compressed files
-    # [:-3] lazily removes .gz suffix
-    posfile_name = scaffold[:-3] + '.pos'
-    posfile_path = os.path.join(scaffold_path, 'posfiles', posfile_name)
-
-    gridlig_name = scaffold[:-3] + '.gridlig'
-    gridlig_path = os.path.join(scaffold_path, 'gridligs', gridlig_name)
+    # Get posfile file for current scaffold
+    posfile_name = scaffold if monomer else scaffold[:-3] + '.pos'
 
     # Get params file path
-    if args['--multiple_params']:
-        params_name = os.path.join('params', constraint.split('-')[0] + '.params')
-    else:
-        params_name = target_compound_code + '.params'
+    conformer = constraint.split('-')[0]
+    params_name = '{0}.params'.format(conformer)
 
-    params_path = os.path.join(target_compound_path, params_name)
-
-    # Output path
-    output_path = os.path.join(working_dir_path, 'matches')
-
-    arg = [current_scaffold_path,
-           target_compound_code,
-           posfile_path,
-           os.path.join(constraint_file_path, constraint),
-           params_path,
-           output_path
-           ]
+    arg = [conformer, constraint, current_scaffold, posfile_name, params_name]
 
     if args['--add_gridlig']:
-        arg.append(gridlig_path)
+        gridlig_name = '{0}.gridlig'.format(scaffold[:-4]) if monomer else '{0}.gridlig'.format(current_scaffold)
+        arg += gridlig_name
 
     argument_list.append(arg)
 
-# Get scaffold file names (local)
-if args['<scaffold_file_path>']:
-    scaffold_file = open(args['<scaffold_file_path>'], 'r')
-    scaffold_file_list = [file_name.strip() for file_name in scaffold_file]
+# Start json dict
+json_dict = {}
 
-# Lazy
+json_dict["target_compound"] = target_compound_code
+json_dict["scaffold_pdb_dir"] = scaffold_pdb_path
+json_dict["cst_dir"] = constraint_file_path
+json_dict["params_dir"] = os.path.join(target_compound_path, 'params')
+json_dict["posfile_dir"] = scaffold_pdb_path if args['monomer'] else os.path.join(scaffold_path, 'posfiles')
+json_dict["output_path"] = os.path.join(working_dir_path, 'matches')
+
+if args['--add_gridlig']:
+    json_dict['gridlig_path'] = os.path.join(scaffold_path, 'gridligs')
+
+# Get scaffold file names (local)
+scaffold_file = open(args['<scaffold_file_path>'], 'r')
+scaffold_file_list = [file_name.strip() for file_name in scaffold_file]
+
 if args['iteration']:
     print(args['<gurobi_constraints_csv>'])
     scaffold_csv = pd.read_csv(args['<gurobi_constraints_csv>'])
@@ -146,7 +157,13 @@ if args['iteration']:
 
     for index, row in scaffold_csv.iterrows():
         current_solution_set = [a for a in gurobi_iteration_solutions if row['constraint'] in a]
-        assert len(current_solution_set) == 1
+
+        # todo: announce skipped consrtaints... this assumes all iteration solutions are being provided
+        # assert len(current_solution_set) == 1
+
+        if len(current_solution_set) < 1:
+            print('Gurobi solutions for constraints {0} not provided. Moving on!'.format(row['constraint']))
+            continue
 
         current_solution_csv = pd.read_csv(os.path.join(gurobi_iteration_solutions_dir, current_solution_set[0]), usecols=['Conformer', 'Obj_score', 'Residue_indicies'])
         current_scaffolds = [scaffold for scaffold in relevant_scaffolds if row['scaffold'] in scaffold]
@@ -156,12 +173,15 @@ if args['iteration']:
             for index, row in current_solution_csv.iterrows():
                 residue_index_list = literal_eval(row['Residue_indicies'])
                 constraint_filename = "{}-{}.cst".format(row['Conformer'], '_'.join([str(a) for a in residue_index_list]))
-                add_arg_to_list(scaffold, constraint_filename)
+                add_arg_to_list(scaffold, constraint_filename, monomer=args['monomer'])
 
 else:
+    print(args['<cst_dir>'])
     for scaffold in scaffold_file_list:
         for constraint in os.listdir(args['<cst_dir>']):
-            add_arg_to_list(scaffold, constraint)
+            add_arg_to_list(scaffold, constraint, monomer=args['monomer'])
+
+json_dict['args'] = argument_list
 
 ##############################
 #   Dump Arguments as JSON   #
@@ -169,4 +189,4 @@ else:
 print("Generated {} constraints".format(len(argument_list)))
 
 with open('matcher_argument_list.json', 'w') as arg_list:
-    json.dump(argument_list, arg_list)
+    json.dump(json_dict, arg_list)

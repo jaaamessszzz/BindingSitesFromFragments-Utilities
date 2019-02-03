@@ -8,8 +8,16 @@
     <!--Rotamer Trials-->
     <RotamerTrialsMover name="RotamerTrials" scorefxn="sfxn_cst" task_operations="ic,extra_rots,limitAroChi,fixlig,motif_task,NATRO_positions,init,no_PG"/>
 
+    <!--Set Foldtree-->
+    <AtomTree name="set_foldtree" fold_tree_file="../../%%foldtree_file%%" />
+
+    <!--Add Matcher Constraints-->
+    <AddOrRemoveMatchCsts cst_instruction="add_new" name="add_match_constraints" />
+
     <!--Design Protocol that is passed to GenericMonteCarlo-->
     <ParsedProtocol name="design_protocol" mode="sequence">
+        <Add mover_name="set_foldtree"/>
+        <Add mover_name="add_match_constraints"/>
         <Add mover_name="fixbb"/>
         <Add mover_name="RotamerTrials"/>
         <Add mover_name="RotamerTrials"/>
@@ -19,7 +27,7 @@
         <Add filter_name="Lig_ShapeC"/>
         <Add filter_name="packstat"/>
         <Add filter_name="buried_unsat"/>
-        <Add filter_name="repack_without_ligand"/>
+        <!--<Add filter_name="repack_without_ligand"/>-->
         <Add filter_name="rosettaholes"/>
     </ParsedProtocol>
 </MOVERS>

@@ -347,9 +347,9 @@ if __name__ == '__main__':
                     if pdb.startswith('UM'):
                         # Parse for constraint file name, add to set
                         pdb_split = re.split('_|-|\.', pdb)
-                        ligand_name = pdb_split[5]
-                        conformer_id = pdb_split[6]
-                        conformer_name = '{}_{}'.format(ligand_name, conformer_id)
+
+                        conformer_id = pdb_split[6] if pdb_split.index(ligand) == 5 else pdb_split[7]
+                        conformer_name = '{}_{}'.format(ligand, conformer_id)
                         conformer_set.add(conformer_name)
 
             # Load all fuzzballs into dict
@@ -415,7 +415,10 @@ if __name__ == '__main__':
             motif_index_string = '_'.join(motif_index_list)
 
             # Ideal Binding Site Name
-            ideal_binding_site_name = '{}_{}-1_{}'.format(pnc[5], pnc[6], motif_index_string)
+            # todo: pnc list is all messed up for monomer scaffold set
+
+            pnc_conformer = pnc[6] if pnc.index(ligand) == 5 else pnc[7]
+            ideal_binding_site_name = '{}_{}-1_{}'.format(ligand, pnc_conformer, motif_index_string)
 
             # Motif Residues in Matched PDB
             motif_residue_ID_list = [a for a in re.split('(\D+)', pnc[2]) if a != '']
@@ -423,8 +426,8 @@ if __name__ == '__main__':
                                  indx in range(0, len(motif_residue_ID_list), 2)]
 
             # --- Validate PDB quality... (HACKY BUT W/E IDGAF) --- #
-            # This is necessary when I forget to adjust memory allocations for submitted jobs on the cluster and things die unexpectedly...
 
+            # This is necessary when I forget to adjust memory allocations for submitted jobs on the cluster and things die unexpectedly...
             row_dict = {'match_name': matched_PDB,
                         'ligand_shell_eleven': 0,
                         'interface_CB_contact_percentage': 0,
@@ -436,32 +439,40 @@ if __name__ == '__main__':
                         'ligand_CB_clashes': 9999
                         }
 
+            # Return if match PDB cannot be parsed by ProDy
             try:
                 match_prody = prody.parsePDB(matched_PDB)
             except:
                 return row_dict
-
-            chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
-            if len(chains_in_dimer) != 2:
-                return row_dict
-
-            interface_cb = match_prody.select('(name CB and chain {}) within 8 of chain {} or\
-            (name CB and chain {}) within 8 of chain {}'.format(chains_in_dimer[0], chains_in_dimer[1], chains_in_dimer[1], chains_in_dimer[0]))
 
             condition_list = [not match_prody,
                               match_prody.select('name CB within 11 of resname {}'.format(ligand)) is None,
                               match_prody.select('protein') is None,
                               len(match_prody.select('protein')) < 200,
                               match_prody.select('resname {}'.format(ligand)) is None,
-                              interface_cb is None,
                               match_prody.select('name CB within 6 of resname {}'.format(ligand)) is None
                               ]
 
             if any(condition_list):
                 return row_dict
 
+            # Return if motif residues are missing from match
             for res_tuple in motif_residue_IDs:
                 if match_prody.select('resnum {} and not hydrogen and protein'.format(res_tuple[1])) is None:
+                    return row_dict
+
+            if not monomer:
+
+                # Return if match PDB is dimer but there's a chain missing (??)
+                chains_in_dimer = list(set(match_prody.getChids()) - set('X'))
+                if len(chains_in_dimer) != 2:
+                    return row_dict
+
+                # Return if the interface doesn't exist (???)
+                interface_cb = match_prody.select('(name CB and chain {}) within 8 of chain {} or\
+                (name CB and chain {}) within 8 of chain {}'.format(chains_in_dimer[0], chains_in_dimer[1], chains_in_dimer[1], chains_in_dimer[0]))
+
+                if interface_cb is None:
                     return row_dict
 
             # --- Calculate Match Metrics --- #
@@ -507,7 +518,8 @@ if __name__ == '__main__':
                 clashing_motif_resnums_count = len(clashing_motif_resnums)
 
             # Look up binding motif score in gurobi solutions
-            current_conformer = '{}_{}'.format(pnc[5], pnc[6])
+            # todo: pnc list is all messed up for monomer scaffold set
+            current_conformer = '{}_{}'.format(ligand, pnc_conformer)
             index_list_string = '[1, {}]'.format(', '.join(motif_index_list))
 
             gurobi_score = 0
@@ -563,13 +575,14 @@ if __name__ == '__main__':
     # Percentage cutoff filters
     # Ascending = True or False
     ascending_dict = {'ligand_shell_eleven': False,
-                      'interface_CB_contact_percentage': False,
                       'motif_shell_CB': False,
-                      # 'residue_match_score': True,
-                      # 'ligand_match_score': True,
+                      'residue_match_score': True,
+                      'ligand_match_score': True,
                       # 'min_res_per_chain': True # Not necessary if iterating to build full binding sites
                       # 'gurobi_motif_score': True # I don't think we will want to filter based on motif scores...
                       }
+    if not monomer:
+         ascending_dict['interface_CB_contact_percentage'] = False
 
     # Hard Cutoff filters
     # Accept anything up to value for each key
@@ -577,7 +590,7 @@ if __name__ == '__main__':
 
     # Residue Count Filter
     # Accept matches with specified number of residues
-    match_residue_count = {'matched_residues': 5}
+    match_residue_count = {'matched_residues': 3}
 
     # Dump lists of passing matches for each metric into set_list
     set_list = []

@@ -9,7 +9,8 @@ regret this later...)
 
 Usage:
     design_filtering consolidate <design_PDB_dir> <target_designs> <design_json> [<score_term>...] [--fill_quota] [--unique] [--HBNet_911]
-    design_filtering analyze <design_PDB_dir> <scores_csv> <design_json>
+    design_filtering analyze <design_PDB_dir> <design_json>
+    design_filtering move <Pymol_Dir> <design_PDB_dir>
 
 Arguments:
     consolidate
@@ -42,9 +43,9 @@ Options:
 import os
 import sys
 import re
-import shutil
-import pprint
 import json
+import shutil
+from pprint import pprint
 
 import docopt
 import pandas as pd
@@ -272,24 +273,6 @@ class FilterDesigns():
         df.set_index('description', inplace=True)
 
         # --- Process HBUnsats and other metrics written to PDB --- #
-        # I've decided this is too much of a pain in the ass to implement... organizationally...
-
-        # # Get HB Unsat resnums from WT scaffold PDB
-        # with open(self.match_input_path) as derp:
-        #     for line in derp:
-        #         if line.startswith(('ATOM', 'HETATM', 'CONECT', 'TER')):
-        #             continue
-        #
-        #         if line.startswith('BuriedUnsatHbonds buried_unsat:'):
-        #             existing_unsats = set()
-        #             continue
-        #
-        #         if line.startswith('      Unsatisfied H'):
-        #             existing_unsats.add(int(re.split('[ :]', line)[6]))
-        #             continue
-        #
-        #         if line.startswith('# All scores below are weighted scores, not raw scores.'):
-        #             break
 
         # Get residues within 5A of design/motif residues that can potentially have unsats from designs
         input_PDB_prody = prody.parsePDB(self.match_input_path)
@@ -367,9 +350,8 @@ class FilterDesigns():
 
 class AnalyzeDesigns():
 
-    def __init__(self, input_design_dir, csv_path, design_json_path):
+    def __init__(self, input_design_dir, design_json_path):
         self.design_dir = input_design_dir
-        self.df = pd.read_csv(csv_path)
         self.design_json = json.load(open(design_json_path, 'r'))
 
     def sequence_logo(self):
@@ -401,6 +383,44 @@ class AnalyzeDesigns():
         motif = motifs.create([Seq(designed_positions, IUPAC.protein) for designed_positions in design_lol])
         motif.weblogo("{0}-{1}-Weblogo.pdf".format(self.design_json['pdbid'].split()[0], os.path.basename(os.path.normpath(self.design_dir))), format='PDF')
 
+# Because I'm lazy AF, copy/pasted from prepare_match_iteration.py
+def copy_matches(pymol_dir, match_dir, final_dir_name='Matches-Final'):
+    """
+    Copies quality matches from match_dir
+    :return:
+    """
+    # New directory for final match picks
+    final_match_dir = os.path.join(os.getcwd(), final_dir_name)
+    os.makedirs(final_match_dir, exist_ok=True)
+
+    # Iterate through pymol_dir
+    quality_match_list = []
+    for pymol_session in os.listdir(pymol_dir):
+        if pymol_session.endswith('.pse'):
+            quality_match_list.append(pymol_session.replace('-pretty.pse', '.pdb'))
+    print('\nFound {0} quality matches in {1}...\n'.format(len(quality_match_list), pymol_dir))
+
+    # Move matches in quality_match_list from match_dir into final_match_dir
+    moved_matches = []
+    for match in quality_match_list:
+        src = os.path.join(match_dir, match)
+        if os.path.exists(src):
+            dst = os.path.join(final_match_dir, match)
+            shutil.copy2(src, dst)
+            moved_matches.append(match)
+
+    # Report
+    missing_matches = set(quality_match_list) - set(moved_matches)
+    if len(missing_matches) == 0:
+        print('All quality matches transferred successfully to {0}!'.format(final_match_dir))
+    else:
+        print('The following matches were not found in {0}:'.format(match_dir))
+        for missing in missing_matches:
+            print(missing)
+
+    print('\n')
+
+    return final_match_dir
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)
@@ -411,6 +431,7 @@ if __name__ == '__main__':
     return_unique_only = args['--unique']
     update_hb_unsats = args['--HBNet_911']
     design_json_path = args['<design_json>']
+    pymol_dir = args['<Pymol_Dir>']
 
     if args['consolidate']:
         target_design_number = int(args['<target_designs>'])
@@ -433,6 +454,8 @@ if __name__ == '__main__':
             design_list_df.to_csv('{}-Consolidated_Scores-Design_List_Subset.csv'.format(os.path.basename(input_design_dir)))
 
     if args['analyze']:
-        csv_path = args['<scores_csv>']
-        analyze_designs = AnalyzeDesigns(input_design_dir, csv_path, design_json_path)
+        analyze_designs = AnalyzeDesigns(input_design_dir, design_json_path)
         analyze_designs.sequence_logo()
+
+    if args['move']:
+        copy_matches(pymol_dir, input_design_dir, final_dir_name='Designs-Final')

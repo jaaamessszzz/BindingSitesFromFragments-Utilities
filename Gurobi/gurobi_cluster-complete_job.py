@@ -93,6 +93,7 @@ print 'Starting Gurobi...'
 from gurobipy import *
 
 struct_id = int(sge_task_id + 1)
+print('Working with conformer {0}'.format(struct_id))
 
 #-- Check for command line arguements --#
 
@@ -100,55 +101,75 @@ struct_id = int(sge_task_id + 1)
 motif_count = int(sys.argv[1])
 print('Solving for {0} residue binding motifs (including ligand)'.format(motif_count))
 
-include = sys.argv[2] == 'include'
-exclude = sys.argv[2] == 'exclude'
+extra_option = sys.argv[2] if len(sys.argv) > 2 else False
+
+include = extra_option == 'include'
+exclude = extra_option == 'exclude'
 
 # If second argument is passed, it needs to be a text file of previous matches
 # e.g. REN_0025-1_207_294_764_783
-if sys.argv[2]:
 
-    # Use residues from previous solutions in next iteration of solutions
-    if include:
-        previous_match_list = [a for a in open(sys.argv[3], 'r')]
-        print(previous_match_list)
+# Use residues from previous solutions in next iteration of solutions
+if include:
+    previous_match_list = [a for a in open(sys.argv[3], 'r')]
+    print(previous_match_list)
 
-        current_match_iteration = previous_match_list[sge_task_id].strip()
-        current_match_total_split = re.split('-|_|', current_match_iteration)
-        current_match_dash_split = re.split('-', current_match_iteration)
+    current_match_iteration = previous_match_list[sge_task_id].strip()
+    current_match_total_split = re.split('-|_|', current_match_iteration)
+    current_match_dash_split = re.split('-', current_match_iteration)
 
-        print('Starting match iteration with {0}'.format(current_match_iteration))
+    print('Starting match iteration with {0}'.format(current_match_iteration))
 
-        # struct_id is now whatever
-        struct_id = int(current_match_total_split[1])
-        print('struct_id set to {0}'.format(struct_id))
+    # struct_id is now whatever
+    struct_id = int(current_match_total_split[1])
+    print('struct_id set to {0}'.format(struct_id))
 
-        # Get new residue constraints
-        residue_constraints_string = current_match_dash_split[1]
-        residue_constraints = [int(a) for a in residue_constraints_string.split('_')][1:]
-        print('Adding residue constraints to optimization: {0}'.format(residue_constraints))
+    # Get new residue constraints
+    residue_constraints_string = current_match_dash_split[1]
+    residue_constraints = [int(a) for a in residue_constraints_string.split('_')][1:]
+    print('Adding residue constraints to optimization: {0}'.format(residue_constraints))
 
-    # Only use a subset of residues from fuzzball to solve for solutions
-    elif exclude:
-        print('Only using a subset of fuzzball residues to generate solutions')
-        include_position_resnumes = [int(a) for a in open(sys.argv[3], 'r')]
+# Only use a subset of residues from fuzzball to solve for solutions
+elif exclude:
+    print('Only using a subset of fuzzball residues to generate solutions')
+    include_position_resnumes = [int(a) for a in open(sys.argv[3], 'r')]
 
-        print('Using resnums: {0}'.format(include_position_resnumes))
+    print('Using resnums: {0}'.format(include_position_resnumes))
 
 #-- Select pairwise scores for structid aka conformer --#
 
 # Generate gurobi input table/csv
-connection = sqlite3.connect('two_body_terms.db')
+connection = sqlite3.connect('../two_body_terms.db')
 cursor = connection.cursor()
 
 residue_table = pd.read_sql_query("SELECT * from residues where struct_id = {0}".format(struct_id), connection)
+
+# Upweight hbond_sc score term with ligand to bias towards solutions where hbond donor/acceptors on ligand are satisfied
+# score_table = pd.read_sql_query(
+#     """
+#     SELECT struct_id, resNum1, resNum2,
+#     CASE
+#     WHEN sum(score_value) >= 0 THEN 1
+#     WHEN sum(score_value) >= -0.1 THEN 0
+#     ELSE sum(score_value)
+#     END
+#     as score_total from
+#     (SELECT struct_id, resNum1, resNum2, score_type_name,
+#     CASE
+#     WHEN (score_type_name = 'hbond_sc' and resNum1 = 1) THEN 3 * score_value
+#     ELSE score_value
+#     END as score_value
+#     from relevant_2b_scores where struct_id={0})
+#     group by struct_id, resNum1, resNum2;
+#     """.format(struct_id), connection)
+
 score_table = pd.read_sql_query(
     """
-    SELECT struct_id, resNum1, resNum2, 
+    SELECT struct_id, resNum1, resNum2,
     CASE
-    WHEN sum(score_value) >= 0 THEN 1
-    WHEN sum(score_value) >= -0.1 THEN 0
+    WHEN sum(score_value) >= 0.1 THEN 1
     ELSE sum(score_value)
-    END 
+    END
     as score_total from relevant_2b_scores where struct_id={0} group by struct_id, resNum1, resNum2;
     """.format(struct_id), connection)
 
@@ -173,6 +194,7 @@ for index, row in ligand_residue_scores.iterrows():
 
 # List of residue indcies used in Model
 MIP_residx_list = list(MIP_var_dict.keys())
+print(ligand_residue_scores)
 print(MIP_residx_list)
 print(len(MIP_residx_list))
 
@@ -192,17 +214,18 @@ residue_interactions.setObjective(quicksum(two_body_interactions), GRB.MINIMIZE)
 residue_interactions.addConstr(MIP_var_dict[float(1)] == 1)
 
 # Include residue constraints if sys.argv[2] exists
-if sys.argv[2] and include:
+if include:
     for residue_num in residue_constraints:
         residue_interactions.addConstr(MIP_var_dict[float(residue_num)] == 1)
 
 # Exclude residues not specified in posfile if posfile is provided
-if sys.argv[2] and exclude:
+elif exclude:
     for resnum in MIP_residx_list:
         if resnum not in include_position_resnumes:
             residue_interactions.addConstr(MIP_var_dict[float(resnum)] == 0)
 
 # Number of residues in a binding motif (includes ligand)
+# NOTE: == for nucleation, <= for iterations!!!
 residue_interactions.addConstr(quicksum(var for var in MIP_var_dict.values()) == motif_count)
 
 # todo: update this to use score_dict
@@ -212,9 +235,17 @@ for index, row in current_struct_scores.iterrows():
     if row['score_total'] > 0 and all([row['resNum1'] in MIP_residx_list, row['resNum2'] in MIP_residx_list]):
         residue_interactions.addConstr(MIP_var_dict[int(row['resNum1'])] + MIP_var_dict[int(row['resNum2'])] <= 1)
 
+# --- SPECIAL CASES --- #
+
+# Require one TRP in solution
+# trp_residue_rows = residue_table[residue_table['res_type'] == 'TRP']
+# print(trp_residue_rows)
+# trp_resnum_list = [row['resNum'] for row in trp_residue_rows]
+# residue_interactions.addConstr(quicksum(MIP_var_dict[res] for res in trp_resnum_list) == 1)
+
 # Set Parameters
-residue_interactions.Params.PoolSolutions = 10000
-residue_interactions.Params.PoolGap = 0.2
+residue_interactions.Params.PoolSolutions = 50000
+residue_interactions.Params.PoolGap = 0.5
 residue_interactions.Params.PoolSearchMode = 2
 residue_interactions.Params.Threads = 24
 
@@ -223,7 +254,7 @@ residue_interactions.Params.Threads = 24
 # residue_interactions.Params.Presolve = 2
 # residue_interactions.Params.Heuristics = 0.1
 
-# Optimize
+# --- OPTIMIZE --- #
 residue_interactions.optimize()
 
 #-- Retrieve solutions --#
@@ -240,7 +271,6 @@ for i in range(residue_interactions.SolCount):
     residue_interactions.setParam(GRB.Param.SolutionNumber, i)
 
     res_index_tuple = [int(float(value.VarName)) for index, value in enumerate(residue_interactions.getVars()) if int(value.Xn) == 1]
-    source_pdb_list = [index_mapping.loc[idx, 'source_pdb'] for idx in res_index_tuple if idx != 1]
     print('Residue Indicies: {}'.format(res_index_tuple))
 
     # Janky method to get values for non-ideal solutions since I can't get Model.PoolObjVal to work...
@@ -259,7 +289,7 @@ for i in range(residue_interactions.SolCount):
                          'Conformer': '{}_{:0>4}'.format(compound_id, struct_id)})
 
 df = pd.DataFrame(results_list)
-if sys.argv[2] and sys.argv[2] == 'include':
+if extra_option == 'include':
     df.to_csv('Gurobi_results-{0}-{1}_residue-conformer_{2}.csv'.format(compound_id, residues_in_motif, current_match_iteration))
 else:
     df.to_csv('Gurobi_results-{0}-{1}_residue-conformer_{2}.csv'.format(compound_id, residues_in_motif, struct_id))
