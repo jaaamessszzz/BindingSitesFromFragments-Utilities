@@ -5,24 +5,17 @@ This script will prepare inputs for Submit-HBNet_Design, namely design positions
 as a json that can be imported by the cluster submission script.
 
 Design Positions - All residues within 10A of ligand except for matched residues
-Static Positions - Not {Design Positions}
 
 Usage:
-    Prep-HBNet_Design s <matched_pdb_path>
-    Prep-HBNet_Design l <matched_pdb_list>
+    Prep-HBNet_Design s <matched_pdb_path> <ligand_cci>
+    Prep-HBNet_Design l <matched_pdb_list> <ligand_cci>
     
 Arguments:     
-    s
-        Generate inputs for a single binding motif match
-    
-    <matched_pdb_path>
-        Path to the matched pdb
-        
-    l
-        Generate inputs for a list of binding motif matches
-    
-    <matched_pdb_list>
-        Path to a text file containing a list of matched pdb paths
+    s                   Generate inputs for a single binding motif match
+    l                   Generate inputs for a list of binding motif matches
+    <ligand_cci>        Chemical component ID for target ligand
+    <matched_pdb_path>  Path to the matched pdb
+    <matched_pdb_list>  Path to a text file containing a list of matched pdb paths
         
 Options:
     
@@ -40,17 +33,13 @@ class Prepare_Designs():
     Class for all your design preparation needs
     """
 
-    def __init__(self, match_pdb_path):
+    def __init__(self, match_pdb_path, compound_id):
         self.match_pdb_path = match_pdb_path
         self.pdbid = os.path.basename(os.path.normpath(self.match_pdb_path))
         self.match_position_list = self.determine_matched_residue_positions()
         self.match_prody = prody.parsePDB(self.match_pdb_path)
-        self.compound_id = self.get_compound_id()
+        self.compound_id = compound_id
         self.design_position_set = self.determine_design_positions()
-
-    def get_compound_id(self):
-        basename = os.path.basename(os.path.normpath(self.match_pdb_path))
-        return basename.split('_')[6] if basename.split('_')[5] is '11' else basename.split('_')[5]
 
     def determine_design_positions(self):
         """
@@ -76,14 +65,23 @@ class Prepare_Designs():
 
     def determine_matched_residue_positions(self):
         """
-        Parse the filename of the match PDB to determine IDs and positions of match residues
-        :return: 
+        Parse matcher remarks to return match positions
+        :param match_pose: pose with matcher remark header
+        :return:
         """
-        positions_block = self.pdbid.split('_')[2]
-        resnames = [a for a in re.split("[0-9]*", positions_block) if a]
-        resnums = [int(a) for a in re.split("[a-zA-Z]*", positions_block) if a]
 
-        return [(a, b) for a, b in zip(resnames, resnums)]
+        motif_resnums = list()
+        with open(self.match_pdb_path, 'r') as match:
+            for line in match:
+                split_remark = line.split()
+
+                # Only parse matcher remarks
+                if split_remark[0] == 'REMARK':
+                    if all([split_remark[:4] == ['REMARK', '666', 'MATCH', 'TEMPLATE'],
+                            split_remark[7:9] == ['MATCH', 'MOTIF']]):
+                        motif_resnums.append((split_remark[10], int(split_remark[11])))
+
+        return motif_resnums
 
     def dump_json(self):
         """
@@ -98,7 +96,7 @@ class Prepare_Designs():
 
         json_dict = {'pdbid': self.pdbid,
                      # 'static_residue_list': [int(a) for a in static_residue_list],
-                     'design_residue_list': [int(a) for a in list(self.design_position_set)],
+                     'design_residue_list': sorted([int(a) for a in list(self.design_position_set)]),
                      'match_residues': self.match_position_list
                      }
 
@@ -112,7 +110,7 @@ def main():
     args = docopt.docopt(__doc__)
 
     if args['s']:
-        prepare_designs = Prepare_Designs(args['<matched_pdb_path>'])
+        prepare_designs = Prepare_Designs(args['<matched_pdb_path>'], args['<ligand_cci>'])
         design_position_set = prepare_designs.determine_design_positions()
         prepare_designs.dump_json()
 
