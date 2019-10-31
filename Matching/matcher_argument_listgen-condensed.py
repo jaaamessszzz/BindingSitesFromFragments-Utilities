@@ -22,40 +22,23 @@ Generate a list of argument lists for matcher cluster runs and export as json
 }
 
 Usage:
-    matcher_argument_listgen (monomer|dimer|recover) <target_compound> <working_dir_name> <scaffold_file_path> ( <cst_dir> | iteration <gurobi_constraints_csv> <gurobi_iteration_solutions>) [-m][-g][-j]
+    matcher_argument_listgen (monomer|dimer|recover) <target_compound> <working_dir_name> <scaffold_file_path>
+    ( <cst_dir> | iteration <gurobi_constraints_csv> <gurobi_iteration_solutions>) [-m][-g][-j]
 
 Arguments:
-    monomer
-        Match to monomer scaffold library
-        
-    dimer
-        Match to dimer scaffold library
-         
-     recover
-        Match to user defined scaffolds
-        
-    <target_compound>
-        Three letter code of target compound
-    
-    <working_dir_name> 
-        Name of the directory under {bsff_path}/Compounds/{target_compound_code} on cluster
-        
-    <scaffold_file_path>
-        Path to file containing list of scaffold PDBs
-    
-    <cst_dir>
-        Path to directory containing the target constraint files
+    monomer                 Match to monomer scaffold library
+    dimer                   Match to dimer scaffold library
+    recover                 Match to user defined scaffolds
+    <target_compound>       Three letter code of target compound
+    <working_dir_name>      Name of the directory under {bsff_path}/Compounds/{target_compound_code} on cluster
+    <scaffold_file_path>    Path to file containing list of scaffold PDBs
+    <cst_dir>               Path to directory containing the target constraint files
         
 Options:
-    -m --multiple_params
-        Multiple params files needed!
-        
-    -g --add_gridlig
-        Generate arguments with gridlig file specified. Gridlig files are not required by the matcher, and quite frankly 
-        the way we are using them doesn't really help anything much...
-        
-    -j --james
-        Use the dimer scaffold library by james
+    -m --multiple_params    Multiple params files needed!
+    -g --add_gridlig        Generate arguments with gridlig file specified. Gridlig files are not required by the matcher,
+                            and quite frankly the way we are using them doesn't really help anything much...
+    -j --james              Use the dimer scaffold library by james
 """
 import os
 import sys
