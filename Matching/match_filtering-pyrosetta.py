@@ -1,13 +1,12 @@
-#! /netapp/home/james.lucas/Packages/Python3.6/bin/python
-#$ -S /netapp/home/james.lucas/Packages/Python3.6/bin/python
+#! /netapp/home/james.lucas/anaconda3/bin/python3
+#$ -S /netapp/home/james.lucas/anaconda3/bin/python3
 #$ -cwd
 #$ -r yes
 #$ -l h_rt=240:00:00
-#$ -t 1-10025
+#$ -t 1-1000
 #$ -j y
-#$ -l arch=linux-x64
 #$ -l mem_free=15G
-#$ -l netapp=1G,scratch=10G
+#$ -l scratch=10G
 
 """
 Testing PyRosetta...
@@ -16,33 +15,26 @@ Iterate over matches to get pairwise energies for each motif residue with ligand
 except match residues and return largest fa_rep for each motif residue.
 
 Usage:
-    pyrosetta_scoring_test match <block_size> <ligand_ID> <params_dir>
-    pyrosetta_scoring_test score <input_PDB_dir> <ligand_ID> <params_dir>
-    pyrosetta_scoring_test score_matched <ligand_ID> <params_dir>
-    pyrosetta_scoring_test consolidate
-    pyrosetta_scoring_test move
+    pyrosetta_scoring_test match <block_size> <ligand_ID> <params_dir> [options]
+    pyrosetta_scoring_test score <input_PDB_dir> <ligand_ID> <params_dir> [options]
+    pyrosetta_scoring_test score_matched <ligand_ID> <params_dir> [options]
+    pyrosetta_scoring_test consolidate [options]
+    pyrosetta_scoring_test move [options]
 
 Arguments:
-    match
-        Match and score
+    match               Match and score
+    score               Score matches
+    consolidate         Consolidate filter metrics after matching into a single dataframe
+    move                Move quality matches
+    <input_PDB_dir>     Path to directory containing input PDBs
+    <params_file>       Path to params file
+    <energy_csv>        .csv report with energies
 
-    score
-        Score matches
-
-    consolidate
-        Consolidate filter metrics after matching into a single dataframe
-
-    move
-        Move quality matches
-
-    <input_PDB_dir>
-        Path to directory containing input PDB s
-
-    <params_file>
-        Path to params file
-
-    <energy_csv>
-        .csv report with energies
+Options:
+    --Keep                  Don't delete matches that fail filters
+    --KeepAll               Keep all matches regardless of what filtering says
+    --SameSequenceGrouper   Use SameSequenceGrouper instead of SameRotamerGrouper
+    --ligand_pdb=<path>     Path to ligand for SASA calculation
 """
 import os
 import sys
@@ -219,7 +211,7 @@ def hbond_satisfaction_filter(pose, sfxn, residue_index_list):
                                     ]
                                    )
 
-                if all([hbbond_term <= -0.2, max_fa_rep < 10, gurobi_terms < 10]):
+                if all([hbbond_term < 0, max_fa_rep < 10, gurobi_terms < 10]):
                     contact_distance, ligand_contact_atom = report_contact_atoms(pose, residue)
                     satisfied_atoms.add(ligand_contact_atom)
 
@@ -243,14 +235,13 @@ def hbond_satisfaction_filter(pose, sfxn, residue_index_list):
 
         if current_edge is not None:
             edge_scores = current_edge.fill_energy_map()
-            hbbond_term = edge_scores[rosetta.core.scoring.hbond_sc]
+            hbbond_term = float(edge_scores[rosetta.core.scoring.hbond_sc])
+            print(f'hbbond_term: {hbbond_term}')
 
-            if hbbond_term <= -0.2:
+            if hbbond_term < 0:
                 contact_distance, ligand_contact_atom = report_contact_atoms(pose, residue)
-                print(f'Hydrogen bond found for motif residue {motif_index}:\tcontact_distance\tligand_contact_atom')
+                print(f'Hydrogen bond found for motif residue {motif_index}:\t{contact_distance}\t{ligand_contact_atom}')
                 satisfied_atoms.add(ligand_contact_atom)
-
-    # todo: get backbone hbonds with ligand
 
     return list(satisfied_atoms)
 
@@ -259,23 +250,23 @@ def report_contact_atoms(pose, resnum):
 
     # --- Calculate shortest distance between residue and specific atoms on ligand --- #
 
-    # 38E HBond donor/acceptor list
-    hbond_atoms = ['O1', 'O2', 'N2']
+    ligand_resnum = pose.size()  # ASSUMPTION: Ligand is last residue in pose
+    hbond_resnums = [ligand_resnum, resnum]
 
-    ligand_res = pose.residue(pose.size())  # ASSUMPTION: Ligand is last residue in pose
-    hbond_residue = pose.residue(resnum)
+    pose_hbondset = pose.get_hbonds()
+    ligand_hbond_vector = pose_hbondset.residue_hbonds(ligand_resnum)
+    hbond_partner = [a for a in ligand_hbond_vector if (a.acc_res() in hbond_resnums and a.don_res() in hbond_resnums and a.don_res() != a.acc_res())]
 
-    contact_distance = 999
-    ligand_contact_atom = None
+    assert len(hbond_partner) >= 1
 
-    for lig_atom in hbond_atoms:
-        ligand_hbond_atom = ligand_res.atom(lig_atom)
-        distances = [np.linalg.norm(ligand_hbond_atom.xyz() - res_atom.xyz()) for res_atom in hbond_residue.atoms()]
-        current_contact = min(distances)
+    contact_distance = hbond_partner[0].get_HAdist(pose)
 
-        if current_contact < contact_distance:
-            contact_distance = current_contact
-            ligand_contact_atom = lig_atom
+    if hbond_partner[0].don_res() == ligand_resnum:
+        ligand_atm_idx = hbond_partner[0].don_hatm()
+    else:
+        ligand_atm_idx = hbond_partner[0].acc_atm()
+
+    ligand_contact_atom = pose.residue(ligand_resnum).atom_name(ligand_atm_idx)
 
     return contact_distance, ligand_contact_atom
 
@@ -304,40 +295,53 @@ def consolidate_match_stats():
     return df
 
 
-def move_quality_matches(df, src, dst='Matches-Energy_Filtered'):
+def move_quality_matches(df, src, dst='Matches-Energy_Filtered', sasa_cutoff=0.5, ligand_pdb_path=None):
     """
     Move.
     :return:
     """
+
+    if ligand_pdb_path:
+        pyrosetta.init()
+        ligand_pose = rosetta.core.import_pose.pose_from_file(ligand_pdb_path)
+        ligand_sasa_calc = rosetta.core.scoring.sasa.SasaCalc()
+        ligand_sasa_calc.calculate(ligand_pose)
+        ligand_sasa = list(ligand_sasa_calc.get_residue_sasa())[-1]
+        print(f'LIGAND SASA: {ligand_sasa}')
+        sasa_cutoff = ligand_sasa * 0.5
+
     os.makedirs(dst, exist_ok=True)
     set_list = []
 
-    passing_values = {'total_motif_energy': (-5, 'min'),
-                      'max_fa_rep': (5, 'min'),
+    passing_values = {'total_motif_energy': (0, 'min'),
+                      'max_fa_rep': (25, 'min'),
                       'max_fa_sol': (5, 'min'),
                       # 'satisfied_atoms': (2, 'max'),
-                      'ligand_sasa': (50, 'min')
+                      'ligand_sasa': (sasa_cutoff, 'min')
                       }
 
     print('Evaluating matches based on the following criteria:')
 
-    for key, value in passing_values.items():
-        print(key)
+    with open('FilterStats.txt', 'w') as stats:
+        for key, value in passing_values.items():
 
-        if value[1] == 'min':
-            passing_rows = df.loc[df[key] <= value[0]].index
-        else:
-            raise Exception
+            if value[1] == 'min':  # ...why??
+                passing_rows = df.loc[df[key] <= value[0]].index
+            else:
+                raise Exception
 
-        set_list.append(set(passing_rows))
+            set_list.append(set(passing_rows))
+            filter = f'{key} ({value}): {len(passing_rows)} passed this filter\n'
+            stats.write(filter)
 
     # Get intersection of matches
     final_set = set.intersection(*set_list)
-    final_df = df[df.index.isin(list(final_set))]
+    print(final_set)
+    final_df = df[df.index.isin(list(final_set))].copy(deep=True)
 
     # todo: add optional motif residue filter
-    final_df['motif_res'] = final_df.apply(lambda x: len(re.split('-|\.', x['match'])[1].split('_')) - 2, axis=1)
-    final_df = final_df.loc[final_df['motif_res'] == 5]
+    # final_df['motif_res'] = final_df.apply(lambda x: len(re.split('-|\.', x['match'])[1].split('_')) - 2, axis=1)
+    # final_df = final_df.loc[final_df['motif_res'] == 3]
 
     # todo: only return best scoring ~25 matches for each match group
     final_df['unique_match_group'] = final_df.apply(lambda x: '_'.join(x['match'].split('_')[:3] + x['match'].split('_')[4:]), axis=1)
@@ -355,7 +359,7 @@ def move_quality_matches(df, src, dst='Matches-Energy_Filtered'):
         shutil.copy(os.path.join(src, match_pdb_path), os.path.join(dst, match))
 
 
-def score_matches(match_dir, params_file):
+def score_matches(match_dir, params_file, delete=True):
     """
     Score things.
     :return:
@@ -365,7 +369,10 @@ def score_matches(match_dir, params_file):
 
     list_of_dicts = []
     print(match_dir)
-    print([pdb for pdb in os.listdir(match_dir)])
+    match_pdbs = [pdb for pdb in os.listdir(match_dir) if pdb.endswith('.pdb')]
+    print([pdb for pdb in os.listdir(match_dir) if pdb.endswith('.pdb')])
+
+    print(f'RAW_MATCH_COUNT: {len(match_pdbs)}')
 
     for match in [pdb for pdb in os.listdir(match_dir) if pdb.endswith('.pdb')]:
         try:
@@ -380,16 +387,26 @@ def score_matches(match_dir, params_file):
             ligand_sasa_calc.calculate(target_pose)
             ligand_sasa = list(ligand_sasa_calc.get_residue_sasa())[-1]
 
+            # Get free ligand as pose
+            ligand_pose = pyrosetta.pose_from_sequence('A')
+            ligand_resi = target_pose.size()
+            ligand_residue = target_pose.residue(ligand_resi).clone()
+            ligand_pose.append_residue_by_jump(ligand_residue, 1)
+            ligand_pose.delete_residue_slow(1)
+            ligand_sasa_calc.calculate(target_pose)
+            ligand_free_sasa = list(ligand_sasa_calc.get_residue_sasa())[-1]
+
             # Convert all non-essential positions to ALA
             ALAnate_protein(target_pose, sfxn, residue_index_list)
 
             # Determine max fa_rep and fa_sol for motif residues
             max_fa_rep, max_fa_sol = find_binding_motif_clashes(target_pose, sfxn, residue_index_list)
 
-            if max_fa_rep >= 20:
+            if max_fa_rep >= 25:
                 print(f'\nSkipping {match}: high fa_rep in binding motif...\n')
-                os.remove(os.path.join(match_dir, match))
-                continue
+                if delete:
+                    os.remove(os.path.join(match_dir, match))
+                # continue
 
             print(f'\n{match}:\tfa_rep\t{max_fa_rep}\tfa_sol\t{max_fa_sol}\n')
 
@@ -402,15 +419,16 @@ def score_matches(match_dir, params_file):
 
             if total_motif_energy > 0:
                 print(f'\nSkipping {match}: binding motif energy with gurobi score terms > 0...\n')
-                os.remove(os.path.join(match_dir, match))
-                continue
+                if delete:
+                    os.remove(os.path.join(match_dir, match))
+                # continue
 
             match_info = {'match': match,
                           'total_motif_energy': total_motif_energy,
                           'max_fa_rep': max_fa_rep,
                           'max_fa_sol': max_fa_sol,
                           'satisfied_atoms': ','.join(satisfied_atoms),
-                          'ligand_sasa': ligand_sasa
+                          'ligand_sasa': ligand_sasa / ligand_free_sasa
                           }
 
             list_of_dicts.append(match_info)
@@ -421,6 +439,7 @@ def score_matches(match_dir, params_file):
     if list_of_dicts:
         data = pd.DataFrame(list_of_dicts)
         print(data)
+        print(f'ACCEPTED_MATCH_COUNT: {len(list_of_dicts)}')
         data.to_csv(os.path.join(match_dir, 'Matches_Filtered-Energy_Stats.csv'), index=False)
         return True
 
@@ -428,7 +447,7 @@ def score_matches(match_dir, params_file):
         return False
 
 
-def match_things(block_size, working_home_dir, working_temp_dir=None):
+def match_things(block_size, working_home_dir, working_temp_dir=None, use_same_sequence_grouper=False):
     """
     Contents from matcher_submission-condensed.py
     :return:
@@ -446,6 +465,8 @@ def match_things(block_size, working_home_dir, working_temp_dir=None):
     print('Job id:', job_id)
     print('Task id:', sge_task_id)
     print('Block size:', block_size)
+
+    grouper = 'SameSequenceGrouper' if use_same_sequence_grouper else 'SameRotamerComboGrouper'
 
     # --- Start submitting tasks --- #
 
@@ -528,9 +549,15 @@ def match_things(block_size, working_home_dir, working_temp_dir=None):
                '-out:file:scorefile',  # match scores
                '-match_grouper',
                # 'SameSequenceGrouper',  # Two matches belong in the same group if their hits come from the same amino acids at the same scaffold build positions
-               'SameRotamerComboGrouper',  # Two matches belong in the same group if their hits come from the same rotamers of the same amino acids at the same scaffold build positions
+               # 'SameRotamerComboGrouper',  # Two matches belong in the same group if their hits come from the same rotamers of the same amino acids at the same scaffold build positions
+               grouper,
                '-mute',
-               'protocols.idealize']
+               'protocols.idealize',
+               'protocols.BumpGrid',
+               'protocols.match.upstream.ProteinUpstreamBuilder',
+               'protocols.match.Matcher',
+               'core.pack.dunbrack.RotamerLibrary',
+               ]
 
         if len(block) == 7:
             arg.append('-match::grid_boundary')
@@ -544,7 +571,8 @@ def match_things(block_size, working_home_dir, working_temp_dir=None):
         print('Task return code:', return_code, '\n')
 
         # Delete constraint file after it is done being used
-        os.remove(cst_file_path)
+        if os.path.exists(constraint_json_name):
+            os.remove(cst_file_path)
 
 if __name__ == '__main__':
     args = docopt.docopt(__doc__)
@@ -565,11 +593,14 @@ if __name__ == '__main__':
             print(f'Temporary files are being written to: {working_temp_dir}')
 
             # --- Match --- #
-            match_things(int(args['<block_size>']), working_home_dir, working_temp_dir=working_temp_dir)
+            match_things(int(args['<block_size>']), working_home_dir, working_temp_dir=working_temp_dir, use_same_sequence_grouper=args['--SameSequenceGrouper'])
 
             current_taskid = os.getcwd()  # Current working directory is /scratch/unique_temp_dir/taskid-#
             print(f'Current taskid: {current_taskid}')
-            keep_dir = score_matches(current_taskid, scoring_params_file)
+            keep_dir = True
+            delete = not args['--Keep']
+            if not args['--KeepAll']:
+                keep_dir = score_matches(current_taskid, scoring_params_file, delete=delete)
 
             # --- Writing to netapp/home/ directory, deletes taskid-# if none pass fa_rep filter --- #
             # if not keep_dir:
@@ -578,7 +609,7 @@ if __name__ == '__main__':
             #     os.remove(f'{os.path.basename(__file__)}.o{int(os.environ["JOB_ID"])}.{int(os.environ["SGE_TASK_ID"])}')
 
             # --- Writing to /scratch directory, moves taskid-# to netapp/home/ if any match passes fa_rep filter --- #
-            if keep_dir:
+            if keep_dir or args['--KeepAll']:
                 destination_dir = os.path.join(working_home_dir, os.path.basename(current_taskid))
                 print(f'Copying data from {current_taskid} to {destination_dir}...')
                 shutil.copytree(current_taskid, destination_dir)
@@ -588,11 +619,13 @@ if __name__ == '__main__':
             # todo: clean copied matches to delete matches that fail obvious filter metrics
 
     if args['score']:
-        score_matches(args['<input_PDB_dir>'], scoring_params_file)
+        delete = not args['--Keep']
+        score_matches(args['<input_PDB_dir>'], scoring_params_file, delete=delete)
 
     if args['score_matched']:
+        delete = not args['--Keep']
         os.chdir(os.path.join(os.getcwd(), f'task-{int(os.environ["SGE_TASK_ID"])}'))
-        keep_dir = score_matches(os.getcwd(), scoring_params_file)
+        keep_dir = score_matches(os.getcwd(), scoring_params_file, delete=delete)
 
     if args['consolidate']:
         df = consolidate_match_stats()
@@ -600,4 +633,4 @@ if __name__ == '__main__':
 
     if args['move']:
         df = consolidate_match_stats()
-        move_quality_matches(df, os.getcwd())
+        move_quality_matches(df, os.getcwd(), ligand_pdb_path=args['--ligand_pdb'])
