@@ -232,7 +232,6 @@ if __name__ == '__main__':
     sfxn = rosetta.core.scoring.get_score_function()
     fast_relax = rosetta.protocols.relax.FastRelax(sfxn, 5, 'MonomerRelax2019')
     fast_relax.constrain_relax_to_native_coords(True)
-    fast_relax.constrain_relax_to_native_coords(True)
     fast_relax.apply(complex_pose)
     complex_pose.dump_pdb(f'{os.path.basename(input_pdb_path)[:4]}-relaxed.pdb')
 

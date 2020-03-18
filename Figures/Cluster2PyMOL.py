@@ -27,6 +27,9 @@ def generate_session(cluster):
     :return:
     """
 
+    basepath, cluster_dir = os.path.split(cluster)
+    fragment = os.path.basename(basepath)
+
     with tempfile.TemporaryDirectory() as tempdir:
         cluster_prody = prody.loadAtoms(cluster)
         residue_list = list()
@@ -47,7 +50,7 @@ def generate_session(cluster):
 
         # Save and quit
         cluster_path, cluster_file = os.path.split(cluster)
-        save_path = os.path.join(os.getcwd(), f"{os.path.splitext(cluster_file)[0]}.pse")
+        save_path = os.path.join(os.getcwd(), f"{fragment}-{os.path.splitext(cluster_file)[0]}.pse")
         cmd_list += ['-d', f'save {save_path}']
         cmd_list += ['-d', 'quit']
 

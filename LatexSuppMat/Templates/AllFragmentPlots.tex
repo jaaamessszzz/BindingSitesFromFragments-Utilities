@@ -1,0 +1,48 @@
+\documentclass{article}
+
+\usepackage{graphicx} % Required for the inclusion of images
+\usepackage{siunitx}
+\usepackage{geometry}
+
+\geometry{letterpaper, portrait, margin=0.5in}
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+\title{Fragment Contact Clustering and Contact Recovery} % Title
+\date{}
+
+\begin{document}
+
+\maketitle % Insert the title, author and date
+
+\tableofcontents
+
+\pagebreak
+
+\BLOCK{ for fragment in figure_dict['Fragments'].keys() }
+
+\section{\VAR{ fragment }}
+
+SMILES String: \VAR{figure_dict['Fragments'][fragment]['SMILES']}
+
+\BLOCK{ if 'occupancy' in figure_dict['Fragments'][fragment] }
+\subsection{ Fragment Clusters }
+\begin{figure}[h]
+\begin{center}
+\includegraphics[height=0.35\textheight,keepaspectratio]{\VAR{figure_dict['Fragments'][fragment]['occupancy']}}
+\end{center}
+\end{figure}
+\BLOCK{ endif }
+
+\BLOCK{ if 'recovery' in figure_dict['Fragments'][fragment] }
+\subsection{ Fragment Recovery }
+\begin{figure}[h]
+\begin{center}
+\includegraphics[height=0.35\textheight,keepaspectratio]{\VAR{figure_dict['Fragments'][fragment]['recovery']}}
+\end{center}
+\end{figure}
+\BLOCK{ endif }
+
+\newpage
+\BLOCK{ endfor }
+
+\end{document}

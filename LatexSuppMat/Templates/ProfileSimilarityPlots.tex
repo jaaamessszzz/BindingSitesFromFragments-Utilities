@@ -1,0 +1,35 @@
+\documentclass{article}
+
+\usepackage{graphicx} % Required for the inclusion of images
+\usepackage{grffile}
+\usepackage{siunitx}
+\usepackage{geometry}
+
+\geometry{letterpaper, portrait, margin=0.5in}
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+\title{Profile Similarity BoxPlots} % Title
+\date{}
+
+\begin{document}
+\maketitle % Insert the title, author and dateProfileSimilarityPlots.tex
+
+Boxplots depict the distribution of profile similarities for designable positions in each protein-ligand complex in the
+binding site recovery benchmark for varying speical\_rot weights. Designable positions that achieved high profile
+similarity (>0.9) regardless of modifications to the Packer were removed from these plots. Aggregate shows statistics
+for all complexes in the benchmark set.
+
+\tableofcontents
+\pagebreak
+
+\BLOCK{ for design in figure_dict.keys() }
+\section{\VAR{design | replace('_', '\_')}}
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=\textwidth,keepaspectratio]{\VAR{figure_dict[design]}}
+\end{center}
+\end{figure}
+\newpage
+\BLOCK{endfor}
+
+\end{document}

@@ -1,5 +1,5 @@
-#! /netapp/home/james.lucas/anaconda3/bin/python3
-#$ -S /netapp/home/james.lucas/anaconda3/bin/python3
+#! /wynton/home/kortemme/james.lucas/anaconda3/bin/python3
+#$ -S /wynton/home/kortemme/james.lucas/anaconda3/bin/python3
 #$ -cwd
 #$ -r yes
 #$ -l h_rt=240:00:00
@@ -317,7 +317,7 @@ def move_quality_matches(df, src, dst='Matches-Energy_Filtered', sasa_cutoff=0.5
                       'max_fa_rep': (25, 'min'),
                       'max_fa_sol': (5, 'min'),
                       # 'satisfied_atoms': (2, 'max'),
-                      'ligand_sasa': (sasa_cutoff, 'min')
+                      # 'ligand_sasa': (sasa_cutoff, 'min')
                       }
 
     print('Evaluating matches based on the following criteria:')
@@ -336,7 +336,7 @@ def move_quality_matches(df, src, dst='Matches-Energy_Filtered', sasa_cutoff=0.5
 
     # Get intersection of matches
     final_set = set.intersection(*set_list)
-    print(final_set)
+    # print(final_set)
     final_df = df[df.index.isin(list(final_set))].copy(deep=True)
 
     # todo: add optional motif residue filter
@@ -364,13 +364,13 @@ def score_matches(match_dir, params_file, delete=True):
     Score things.
     :return:
     """
-    pyrosetta.init(options=f"-extra_res_fa {params_file} -ex1 -ex2 -extrachi_cutoff 0")
+    pyrosetta.init(options=f"-extra_res_fa {params_file} -ex1 -ex2 -extrachi_cutoff 0 -use_input_sc")
     sfxn = rosetta.core.scoring.get_score_function()
 
     list_of_dicts = []
-    print(match_dir)
+    # print(match_dir)
     match_pdbs = [pdb for pdb in os.listdir(match_dir) if pdb.endswith('.pdb')]
-    print([pdb for pdb in os.listdir(match_dir) if pdb.endswith('.pdb')])
+    # print([pdb for pdb in os.listdir(match_dir) if pdb.endswith('.pdb')])
 
     print(f'RAW_MATCH_COUNT: {len(match_pdbs)}')
 
@@ -388,13 +388,14 @@ def score_matches(match_dir, params_file, delete=True):
             ligand_sasa = list(ligand_sasa_calc.get_residue_sasa())[-1]
 
             # Get free ligand as pose
+            free_ligand_sasa_calc = rosetta.core.scoring.sasa.SasaCalc()
             ligand_pose = pyrosetta.pose_from_sequence('A')
             ligand_resi = target_pose.size()
             ligand_residue = target_pose.residue(ligand_resi).clone()
             ligand_pose.append_residue_by_jump(ligand_residue, 1)
             ligand_pose.delete_residue_slow(1)
-            ligand_sasa_calc.calculate(target_pose)
-            ligand_free_sasa = list(ligand_sasa_calc.get_residue_sasa())[-1]
+            free_ligand_sasa_calc.calculate(target_pose)
+            ligand_free_sasa = list(free_ligand_sasa_calc.get_residue_sasa())[-1]
 
             # Convert all non-essential positions to ALA
             ALAnate_protein(target_pose, sfxn, residue_index_list)
@@ -406,7 +407,7 @@ def score_matches(match_dir, params_file, delete=True):
                 print(f'\nSkipping {match}: high fa_rep in binding motif...\n')
                 if delete:
                     os.remove(os.path.join(match_dir, match))
-                # continue
+                continue
 
             print(f'\n{match}:\tfa_rep\t{max_fa_rep}\tfa_sol\t{max_fa_sol}\n')
 
@@ -421,7 +422,7 @@ def score_matches(match_dir, params_file, delete=True):
                 print(f'\nSkipping {match}: binding motif energy with gurobi score terms > 0...\n')
                 if delete:
                     os.remove(os.path.join(match_dir, match))
-                # continue
+                continue
 
             match_info = {'match': match,
                           'total_motif_energy': total_motif_energy,
@@ -514,9 +515,9 @@ def match_things(block_size, working_home_dir, working_temp_dir=None, use_same_s
                         cst_file.write('\n')
                         cst_file.write('CST::END\n')
 
-        arg = ['/netapp/home/james.lucas/Packages/Rosetta/main/source/bin/match.linuxgccrelease',
+        arg = ['/wynton/home/kortemme/james.lucas/Packages/Rosetta/main/source/bin/match.linuxgccrelease',
                '-database',
-               '/netapp/home/james.lucas/Packages/Rosetta/main/database',
+               '/wynton/home/kortemme/james.lucas/Packages/Rosetta/main/database',
                '-s',
                os.path.join(matcher_arg_json['scaffold_pdb_dir'], block[2]),
                '-match::lig_name',
@@ -581,10 +582,12 @@ if __name__ == '__main__':
     # Get params file
     if args['<params_dir>']:
         ligand_ID = args['<ligand_ID>']
+        params_list = [a for a in os.listdir(args['<params_dir>']) if a.endswith('.params')]
+
         if os.path.exists(os.path.join(args['<params_dir>'], f'{ligand_ID}_conformers.pdb')):
             scoring_params_file = os.path.abspath(os.path.join(args['<params_dir>'], f'{ligand_ID}.params'))
         else:
-            scoring_params_file = os.path.abspath(os.path.join(args['<params_dir>'], f'{ligand_ID}_0001.params'))
+            scoring_params_file = os.path.abspath(os.path.join(args['<params_dir>'], params_list[0]))
 
     if args['match']:
         # --- Move into /scratch directory --- #

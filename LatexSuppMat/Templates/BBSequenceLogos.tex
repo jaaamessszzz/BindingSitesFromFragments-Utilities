@@ -1,0 +1,51 @@
+\documentclass{article}
+
+\usepackage{graphicx} % Required for the inclusion of images
+\usepackage{grffile}
+\usepackage{epstopdf}
+\usepackage{siunitx}
+\usepackage{geometry}
+
+\usepackage{caption}
+\usepackage{subcaption}
+\captionsetup{justification=raggedright, singlelinecheck=false}
+
+\geometry{legalpaper, portrait, margin=0.5in}
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+\title{Binding Site Recovery Benchmark Sequence Logos} % Title
+\date{}
+
+\begin{document}
+\maketitle % Insert the title, author and date
+\tableofcontents
+\pagebreak
+
+\BLOCK{ for complex in figure_dict.keys() }
+\section{\VAR{complex.upper()}}
+
+\begin{figure}[!h]
+\begin{center}
+
+\BLOCK{ for weight in figure_dict[complex]['order']}
+
+\begin{subfigure}[b]{\textwidth}
+    \caption{special\_rot bonus: \VAR{weight}}
+    \includegraphics[height=1.3cm]{\VAR{figure_dict[complex][weight]}}
+\end{subfigure}
+
+%\subsection{ special\_rot weight: \VAR{weight} }
+%\includegraphics[width=\textwidth,height=2cm]{\VAR{figure_dict[complex][weight]}}
+\BLOCK{endfor}
+
+\end{center}
+\end{figure}
+
+\BLOCK{ if loop.index % 16 == 0 }
+\clearpage
+\BLOCK{endif}
+
+\pagebreak
+\BLOCK{endfor}
+
+\end{document}

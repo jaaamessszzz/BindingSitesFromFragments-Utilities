@@ -1,0 +1,36 @@
+\documentclass{article}
+
+\usepackage{graphicx} % Required for the inclusion of images
+\usepackage{grffile}
+\usepackage{siunitx}
+\usepackage{geometry}
+
+\geometry{letterpaper, portrait, margin=0.5in}
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+\title{Design Metric Pairplots} % Title
+\date{}
+
+\begin{document}
+
+\maketitle % Insert the title, author and date
+
+\tableofcontents
+
+\pagebreak
+
+\BLOCK{ for design in figure_dict.keys() }
+
+\section{\VAR{ design | replace('_', '\_') }}
+\BLOCK{ for weight in figure_dict[design]['plots'] }
+\subsection{ special\_rot weight: \VAR{weight} }
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=\textwidth,keepaspectratio]{\VAR{figure_dict[design]['plots'][weight]}}
+\end{center}
+\end{figure}
+\newpage
+\BLOCK{endfor}
+\BLOCK{endfor}
+
+\end{document}

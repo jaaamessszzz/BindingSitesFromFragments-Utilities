@@ -57,7 +57,7 @@ args = docopt.docopt(__doc__)
 target_compound_code = args['<target_compound>']
 
 # Define relevant paths (Cluster paths!!!)
-bsff_path = os.path.join('/netapp', 'home', 'james.lucas', 'BindingSitesFromFragments')
+bsff_path = os.path.join('/wynton', 'home', 'kortemme',  'james.lucas', 'BindingSitesFromFragments')
 target_compound_path = os.path.join(bsff_path, 'Compounds', target_compound_code)
 working_dir_path = os.path.join(target_compound_path, 'Matching', args['<working_dir_name>'])
 constraint_file_path = os.path.join(working_dir_path, 'cst_files')

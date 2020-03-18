@@ -1,0 +1,30 @@
+\documentclass{article}
+
+\usepackage{graphicx} % Required for the inclusion of images
+\usepackage{grffile}
+\usepackage{siunitx}
+\usepackage{geometry}
+
+\geometry{letterpaper, portrait, margin=0.5in}
+\setlength\parindent{0pt} % Removes all indentation from paragraphs
+
+\title{Sequence Recovery BarPlots} % Title
+\date{}
+
+\begin{document}
+\maketitle % Insert the title, author and dateProfileSimilarityPlots.tex
+
+\tableofcontents
+\pagebreak
+
+\BLOCK{ for design in figure_dict.keys() }
+\section{\VAR{design | replace('_', '\_')}}
+\begin{figure}[h]
+\begin{center}
+\includegraphics[width=\textwidth,keepaspectratio]{\VAR{figure_dict[design]}}
+\end{center}
+\end{figure}
+\newpage
+\BLOCK{endfor}
+
+\end{document}
